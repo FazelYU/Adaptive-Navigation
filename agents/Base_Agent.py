@@ -83,12 +83,13 @@ class Base_Agent(object):
 
     def get_state_size(self):
         """Gets the state_size for the gym env into the correct shape for a neural network"""
-        random_state = self.environment.reset()
-        if isinstance(random_state, dict):
-            state_size = random_state["observation"].shape[0] + random_state["desired_goal"].shape[0]
-            return state_size
-        else:
-            return random_state.size
+        # random_state = self.environment.reset()
+        # if isinstance(random_state, dict):
+        #     state_size = random_state["observation"].shape[0] + random_state["desired_goal"].shape[0]
+        #     return state_size
+        # else:
+        #     return random_state.size
+        return self.environment.state_size
 
     def get_score_required_to_win(self):
         """Gets average score required to win game"""
@@ -155,10 +156,13 @@ class Base_Agent(object):
     def reset_game(self):
         """Resets the game information so we are ready to play a new episode"""
         self.environment.seed(self.config.seed)
-        self.state = self.environment.reset()
-        self.next_state = None
-        self.action = None
-        self.reward = None
+        self.states = self.environment.reset(self.episode_number)
+
+        self.mem_states= None
+        self.mem_next_states = None
+        self.mem_actions = None
+        self.mem_rewards = None
+        self.mem_done =None
         self.done = False
         self.total_episode_score_so_far = 0
         self.episode_states = []
@@ -170,20 +174,21 @@ class Base_Agent(object):
         self.episode_achieved_goals = []
         self.episode_observations = []
         if "exploration_strategy" in self.__dict__.keys(): self.exploration_strategy.reset()
-        self.logger.info("Reseting game -- New start state {}".format(self.state))
+        self.logger.info("Reseting game -- New start state {}".format(self.states))
 
     def track_episodes_data(self):
         """Saves the data from the recent episodes"""
-        self.episode_states.append(self.state)
-        self.episode_actions.append(self.action)
-        self.episode_rewards.append(self.reward)
-        self.episode_next_states.append(self.next_state)
-        self.episode_dones.append(self.done)
+        self.episode_states.append(self.mem_states)
+        self.episode_actions.append(self.mem_actions)
+        self.episode_rewards.append(self.mem_rewards)
+        self.episode_next_states.append(self.mem_next_states)
+        self.episode_dones.append(self.mem_done)
 
     def run_n_episodes(self, num_episodes=None, show_whether_achieved_goal=True, save_and_print_results=True):
         """Runs game to completion n times and then summarises results and saves model (if asked to)"""
         if num_episodes is None: num_episodes = self.config.num_episodes_to_run
         start = time.time()
+
         while self.episode_number < num_episodes:
             self.reset_game()
             self.step()
@@ -193,11 +198,12 @@ class Base_Agent(object):
         if self.config.save_model: self.locally_save_policy()
         return self.game_full_episode_scores, self.rolling_results, time_taken
 
-    def conduct_action(self, action):
+    def conduct_action(self, actions):
         """Conducts an action in the environment"""
-        self.next_state, self.reward, self.done, _ = self.environment.step(action)
-        self.total_episode_score_so_far += self.reward
-        if self.hyperparameters["clip_rewards"]: self.reward =  max(min(self.reward, 1.0), -1.0)
+        self.mem_states,self.mem_actions,self.mem_next_states, self.mem_rewards, self.mem_done, self.done = self.environment.step(actions)
+        self.total_episode_score_so_far += sum(self.mem_rewards)
+        
+        if self.hyperparameters["clip_rewards"]: self.rewards =  max(min(self.reward, 1.0), -1.0)
 
 
     def save_and_print_result(self):
@@ -272,8 +278,12 @@ class Base_Agent(object):
     def save_experience(self, memory=None, experience=None):
         """Saves the recent experience to the memory buffer"""
         if memory is None: memory = self.memory
-        if experience is None: experience = self.state, self.action, self.reward, self.next_state, self.done
-        memory.add_experience(*experience)
+
+        assert(experience==None)
+        if experience is None:
+            for state,action,reward,next_state,done in zip(self.mem_states,self.mem_actions,self.mem_rewards,self.mem_next_states,self.mem_done):
+                experience = state, action, reward, next_state, done
+                memory.add_experience(*experience)
 
     def take_optimisation_step(self, optimizer, network, loss, clipping_norm=None, retain_graph=False):
         """Takes an optimisation step by calculating gradients given the loss and then updating the parameters"""

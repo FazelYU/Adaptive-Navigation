@@ -14,8 +14,7 @@ class Four_Rooms_Environment(gym.Env):
     """Four rooms game environment as described in paper http://www-anw.cs.umass.edu/~barto/courses/cs687/Sutton-Precup-Singh-AIJ99.pdf"""
     environment_name = "Four Rooms"
 
-    def __init__(self, grid_width=13, grid_height=13, stochastic_actions_probability=1.0/3.0, random_start_user_place=True,
-                 random_goal_place=True):
+    def __init__(self, grid_width=13, grid_height=13, stochastic_actions_probability=1.0/3.0, random_start_user_place=True,random_goal_place=True):
         assert grid_width >= 9 and grid_height >= 9, "Both grid height and width must be 9 or higher"
         self.grid_width = grid_width
         self.grid_height = grid_height
@@ -44,6 +43,7 @@ class Four_Rooms_Environment(gym.Env):
                 observation=spaces.Box(0, self.num_possible_states, shape=(1,), dtype='float32'),
             ))
         else:
+
             self.observation_space = spaces.Discrete(self.num_possible_states)
 
         self.seed()
@@ -51,7 +51,6 @@ class Four_Rooms_Environment(gym.Env):
         self.trials = 100
         self.max_episode_steps = self.reward_for_achieving_goal
         self.id = "Four Rooms"
-
 
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
@@ -78,8 +77,7 @@ class Four_Rooms_Environment(gym.Env):
         else:
             self.s = np.array(self.state[:self.state_only_dimension])
         return self.s
-
-
+        
     def step(self, desired_action):
         if type(desired_action) is np.ndarray:
             assert desired_action.shape[0] == 1

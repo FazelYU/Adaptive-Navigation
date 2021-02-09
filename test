@@ -1,0 +1,5 @@
+from environments.Utils import Utils
+utils=Utils(one_hot=True)
+import torch
+print(utils.reshape([0,1,0,3,3,0]))
+

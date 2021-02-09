@@ -27,33 +27,48 @@ class DQN(Base_Agent):
     def step(self):
         """Runs a step within a game including a learning step if required"""
         while not self.done:
-            self.action = self.pick_action()
-            self.conduct_action(self.action)
+            # breakpoint()
+            self.actions = self.pick_action()
+            # breakpoint()
+            self.conduct_action(self.actions)
+            # breakpoint()
             if self.time_for_q_network_to_learn():
                 for _ in range(self.hyperparameters["learning_iterations"]):
                     self.learn()
             self.save_experience()
-            self.state = self.next_state #this is to set the state for the next iteration
+            # breakpoint()
+            
+            # self.state = self.next_state #this is to set the state for the next iteration
             self.global_step_number += 1
         self.episode_number += 1
 
-    def pick_action(self, state=None):
+    def pick_action(self, states=None):
+        actions=[]
         """Uses the local Q network and an epsilon greedy policy to pick an action"""
         # PyTorch only accepts mini-batches and not single observations so we have to use unsqueeze to add
         # a "fake" dimension to make it a mini-batch rather than a single observation
-        if state is None: state = self.state
-        if isinstance(state, np.int64) or isinstance(state, int): state = np.array([state])
-        state = torch.from_numpy(state).float().unsqueeze(0).to(self.device)
-        if len(state.shape) < 2: state = state.unsqueeze(0)
-        self.q_network_local.eval() #puts network in evaluation mode
-        with torch.no_grad():
-            action_values = self.q_network_local(state)
-        self.q_network_local.train() #puts network back in training mode
-        action = self.exploration_strategy.perturb_action_for_exploration_purposes({"action_values": action_values,
+        if states is None: states = self.environment.trans_vehicles_states
+        # if  len(states)!=0:
+        #     breakpoint()
+            
+        for state in states:
+            if isinstance(state, np.int64) or isinstance(state, int): state = np.array([state])
+            # breakpoint()
+            # state = torch.from_numpy(state).float().unsqueeze(0).to(self.device)
+            state = state.float().unsqueeze(0).to(self.device)
+            if len(state.shape) < 2: state = state.unsqueeze(0)            
+            # breakpoint()
+            self.q_network_local.eval() #puts network in evaluation mode
+            with torch.no_grad():
+                action_values = self.q_network_local(state)
+            self.q_network_local.train() #puts network back in training mode
+            
+            action = self.exploration_strategy.perturb_action_for_exploration_purposes({"action_values": action_values,
                                                                                     "turn_off_exploration": self.turn_off_exploration,
                                                                                     "episode_number": self.episode_number})
-        self.logger.info("Q values {} -- Action chosen {}".format(action_values, action))
-        return action
+            self.logger.info("Q values {} -- Action chosen {}".format(action_values, action))
+            actions.append(action)   
+        return actions
 
     def learn(self, experiences=None):
         """Runs a learning iteration for the Q network"""

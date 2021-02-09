@@ -98,42 +98,51 @@ class Trainer(object):
         agent_name = agent_class.agent_name
         agent_group = self.agent_to_agent_group[agent_name]
         agent_round = 1
-        for run in range(self.config.runs_per_agent):
-            agent_config = copy.deepcopy(self.config)
 
+        for run in range(self.config.runs_per_agent):
+            # agent_config = copy.deepcopy(self.config)
+            agent_config=self.config
             if self.environment_has_changeable_goals(agent_config.environment) and self.agent_cant_handle_changeable_goals_without_flattening(agent_name):
                 print("Flattening changeable-goal environment for agent {}".format(agent_name))
                 agent_config.environment = gym.wrappers.FlattenDictWrapper(agent_config.environment,
                                                                            dict_keys=["observation", "desired_goal"])
 
             if self.config.randomise_random_seed: agent_config.seed = random.randint(0, 2**32 - 2)
+           
             agent_config.hyperparameters = agent_config.hyperparameters[agent_group]
             print("AGENT NAME: {}".format(agent_name))
             print("\033[1m" + "{}.{}: {}".format(agent_number, agent_round, agent_name) + "\033[0m", flush=True)
+            
             agent = agent_class(agent_config)
             self.environment_name = agent.environment_title
             print(agent.hyperparameters)
             print("RANDOM SEED " , agent_config.seed)
             game_scores, rolling_scores, time_taken = agent.run_n_episodes()
+            
+            # breakpoint()
             print("Time taken: {}".format(time_taken), flush=True)
             self.print_two_empty_lines()
             agent_results.append([game_scores, rolling_scores, len(rolling_scores), -1 * max(rolling_scores), time_taken])
+            
             if self.config.visualise_individual_results:
                 self.visualise_overall_agent_results([rolling_scores], agent_name, show_each_run=True)
                 plt.show()
+           
             agent_round += 1
+
         self.results[agent_name] = agent_results
 
     def environment_has_changeable_goals(self, env):
         """Determines whether environment is such that for each episode there is a different goal or not"""
-        return isinstance(env.reset(), dict)
+        return False
+        # return isinstance(env.reset(), dict)
 
     def agent_cant_handle_changeable_goals_without_flattening(self, agent_name):
         """Boolean indicating whether the agent is set up to handle changeable goals"""
         return "HER" not in agent_name
 
-    def visualise_overall_agent_results(self, agent_results, agent_name, show_mean_and_std_range=False, show_each_run=False,
-                                        color=None, ax=None, title=None, y_limits=None):
+
+    def visualise_overall_agent_results(self, agent_results, agent_name, show_mean_and_std_range=False, show_each_run=False,color=None, ax=None, title=None, y_limits=None):
         """Visualises the results for one agent"""
         assert isinstance(agent_results, list), "agent_results must be a list of lists, 1 set of results per list"
         assert isinstance(agent_results[0], list), "agent_results must be a list of lists, 1 set of results per list"
@@ -248,6 +257,7 @@ class Trainer(object):
             pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
 
     def load_obj(self, name):
+        breakpoint()
         """Loads a pickle file object"""
         with open(name, 'rb') as f:
             return pickle.load(f)

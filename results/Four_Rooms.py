@@ -1,3 +1,8 @@
+import os
+import sys
+from os.path import dirname, abspath
+sys.path.append(dirname(dirname(abspath(__file__))))
+
 from agents.DQN_agents.DDQN import DDQN
 from environments.Four_Rooms_Environment import Four_Rooms_Environment
 from agents.Trainer import Trainer
@@ -23,7 +28,7 @@ config.visualise_individual_results = False
 config.visualise_overall_agent_results = True
 config.standard_deviation_results = 1.0
 config.runs_per_agent = 3
-config.use_GPU = False
+config.use_GPU = True
 config.overwrite_existing_results_file = False
 config.randomise_random_seed = True
 config.save_model = False
@@ -147,8 +152,6 @@ config.hyperparameters = {
         "tau": 0.01
 
     }
-
-
 }
 
 if __name__== '__main__':
