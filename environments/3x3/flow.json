@@ -16,8 +16,8 @@
       "road_3_1_0"
     ],
     "interval": 2,
-    "startTime": 0,
-    "endTime": 9
+    "startTime": 1,
+    "endTime": 10
   },
   {
     "vehicle": {
@@ -28,11 +28,11 @@
       "usualPosAcc": 2.0,
       "usualNegAcc": 4.5,
       "minGap": 2.5,
-      "maxSpeed": 8,
+      "maxSpeed": 2,
       "headwayTime": 1.5
     },
     "route": [
-      "road_0_1_0",
+      "road_1_1_0",
       "road_3_1_0"
     ],
     "interval": 2,

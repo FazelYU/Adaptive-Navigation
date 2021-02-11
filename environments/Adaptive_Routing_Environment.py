@@ -128,6 +128,7 @@ class Adaptive_Routing_Environment(gym.Env):
 				"destination": self.get_destination(vc),
 				"memory_2": None,
 				"memory_1": None,
+				"enter time": self.eng.get_current_time(),
 				"last_trans_time": self.eng.get_current_time(),
 				"last_trans_dur": 0,
 				}
@@ -196,13 +197,28 @@ class Adaptive_Routing_Environment(gym.Env):
 			road=self.vehicles[vc]["memory_1"][0][0:3]
 			roadD=self.vehicles[vc]["memory_1"][0][3:6]
 			if road==roadD:
+				
+				TT=self.eng.get_current_time()-self.vehicles[vc]["enter time"]
+				# print()
+				# print(vc)
+				# print(TT)
 				reward=100
+				reward=reward+reward*200/TT
+				# flow=vc.split("_")[1]
+				# Max_Speed=16 if (flow=="0") else 5
+				# CONST=30
+				# late_punish=TT*Max_Speed/CONST
+				# # print(vc)
+				# # print(late_punish)
+				# reward=reward-late_punish
+				# reward=100 if reward<100 else reward
+				# breakpoint()
 				if self.Log:
-					print("goal reached: +100")
+					print("goal reached: {:.2f}".format(reward))
 			else:
 				reward=-4
 				if self.Log:
-					print("dead-end: -10")
+					print("dead-end")
 			
 			return True,reward
 
