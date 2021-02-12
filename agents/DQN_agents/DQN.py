@@ -27,19 +27,22 @@ class DQN(Base_Agent):
     def step(self):
         """Runs a step within a game including a learning step if required"""
         while not self.done:
-            # breakpoint()
             self.actions = self.pick_action()
-            # breakpoint()
             self.conduct_action(self.actions)
-            # breakpoint()
+
+            steps=len(self.environment.trans_vehicles_states)
+
+            if steps==0:
+                continue
+            
             if self.time_for_q_network_to_learn():
                 for _ in range(self.hyperparameters["learning_iterations"]):
                     self.learn()
-            self.save_experience()
-            # breakpoint()
             
+            self.save_experience()
+
             # self.state = self.next_state #this is to set the state for the next iteration
-            self.global_step_number += 1
+            self.global_step_number += steps
         self.episode_number += 1
 
     def pick_action(self, states=None):

@@ -190,9 +190,15 @@ class Base_Agent(object):
         start = time.time()
 
         while self.episode_number < num_episodes:
-            self.reset_game()
-            self.step()
-            if save_and_print_results: self.save_and_print_result()
+            try:
+                self.reset_game()
+                self.step()
+                if save_and_print_results: self.save_and_print_result()
+            except KeyboardInterrupt:
+                num_episodes=self.episode_number+1
+                breakpoint()
+
+
         time_taken = time.time() - start
         if show_whether_achieved_goal: self.show_whether_achieved_goal()
         if self.config.save_model: self.locally_save_policy()
