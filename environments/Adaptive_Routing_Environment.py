@@ -21,7 +21,7 @@ import numpy
 class Adaptive_Routing_Environment(gym.Env):
 	environment_name = "Adaptive Routing"
 
-	def __init__(self,dim,encode,Num_Flows,Max_Sim_Time,device,Log):
+	def __init__(self,dim,encode,Num_Flows,skip_routing,Max_Sim_Time,device,Log):
 		self.eng = cityflow.Engine("environments/3x3/config.json", thread_num=8)
 		self.vehicles={}
 		self.trans_vehicles=[]
@@ -49,6 +49,7 @@ class Adaptive_Routing_Environment(gym.Env):
 		self.reward_threshold = 0.0
 		self.trials = 100
 		self.Log=Log
+		self.skip_routing=skip_routing
 	# def step(self, desired_action):
 	# 	return self.s, self.reward, self.done, {}
 	# 	# must satisfy base agent conduct_action function line 200
@@ -117,6 +118,10 @@ class Adaptive_Routing_Environment(gym.Env):
 			self.vehicles.pop(vc)
 		
 		for vc in vehicles:
+
+			if self.utils.get_flow_id(vc) in self.skip_routing:
+				# breakpoint()
+				continue
 
 			if vc not in self.vehicles.keys():
 				if self.Log:
@@ -202,8 +207,8 @@ class Adaptive_Routing_Environment(gym.Env):
 				# print()
 				# print(vc)
 				# print(TT)
-				reward=100
-				reward=reward+reward*200/TT
+				reward=1
+				reward=reward+reward*100/TT
 				# flow=vc.split("_")[1]
 				# Max_Speed=16 if (flow=="0") else 5
 				# CONST=30
@@ -216,7 +221,7 @@ class Adaptive_Routing_Environment(gym.Env):
 				if self.Log:
 					print("goal reached: {:.2f}".format(reward))
 			else:
-				reward=-4
+				reward=-2
 				if self.Log:
 					print("dead-end")
 			

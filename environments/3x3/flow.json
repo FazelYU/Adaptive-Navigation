@@ -18,7 +18,8 @@
     "interval": 2,
     "startTime": 1,
     "endTime": 10
-  },
+  }
+  ,
   {
     "vehicle": {
       "length": 10.0,
@@ -37,6 +38,6 @@
     ],
     "interval": 2,
     "startTime": 0,
-    "endTime": 9
+    "endTime": 1
   }
 ]
