@@ -207,7 +207,7 @@ class Adaptive_Routing_Environment(gym.Env):
 				# print()
 				# print(vc)
 				# print(TT)
-				reward=1
+				reward=4
 				reward=reward+reward*100/TT
 				# flow=vc.split("_")[1]
 				# Max_Speed=16 if (flow=="0") else 5
@@ -221,7 +221,7 @@ class Adaptive_Routing_Environment(gym.Env):
 				if self.Log:
 					print("goal reached: {:.2f}".format(reward))
 			else:
-				reward=-2
+				reward=-4
 				if self.Log:
 					print("dead-end")
 			
