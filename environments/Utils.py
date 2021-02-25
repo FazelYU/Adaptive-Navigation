@@ -112,8 +112,8 @@ class Utils(object):
 			
 	def reshape(self,state,vehicle_id):
 		if self.Num_Flows!=0:
-			one_hot_vid=[0]*self.Num_Flows
-			one_hot_vid[self.get_flow_id(vehicle_id)]=1
+			one_hot_vid=[-100]*self.Num_Flows
+			one_hot_vid[self.get_flow_id(vehicle_id)]=100
 
 		road1=self.res_road(state[:3])
 		road2=self.res_road(state[3:])
@@ -134,3 +134,13 @@ class Utils(object):
 	def get_flow_id(self,flow):
 		vid=list(map(int,flow.split('_')[1:3]))
 		return vid[0]
+
+	def get_Shoretest_Path_Travel_Time(self,flow):
+		flow_id=self.get_flow_id(flow)
+		if flow_id==0:
+			return 165
+		if flow_id==1:
+			return 500
+
+		return None
+		

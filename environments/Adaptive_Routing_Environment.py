@@ -15,6 +15,7 @@ from environments.Utils import Utils
 import torch
 import itertools
 import numpy
+import math
 # eng = cityflow.Engine("3x3/config.json", thread_num=1)
 # for i in range(1000):
 # 	eng.next_step()
@@ -204,20 +205,13 @@ class Adaptive_Routing_Environment(gym.Env):
 			if road==roadD:
 				
 				TT=self.eng.get_current_time()-self.vehicles[vc]["enter time"]
+				SPTT=self.utils.get_Shoretest_Path_Travel_Time(vc)
 				# print()
 				# print(vc)
 				# print(TT)
-				reward=4
-				reward=reward+reward*100/TT
-				# flow=vc.split("_")[1]
-				# Max_Speed=16 if (flow=="0") else 5
-				# CONST=30
-				# late_punish=TT*Max_Speed/CONST
-				# # print(vc)
-				# # print(late_punish)
-				# reward=reward-late_punish
-				# reward=100 if reward<100 else reward
-				# breakpoint()
+
+				reward=1+math.exp(SPTT/TT)
+
 				if self.Log:
 					print("goal reached: {:.2f}".format(reward))
 			else:
@@ -243,9 +237,9 @@ class Adaptive_Routing_Environment(gym.Env):
 		# reward= (Dist_1_D-Dist_2_D)*10
 
 		if Dist_1_D>Dist_2_D:
-				reward=1
+				reward=0.5
 		else:
-				reward=-2
+				reward=-1
 		
 		if self.Log:
 				print("moving reward: "+ str(reward))
