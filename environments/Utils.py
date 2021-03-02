@@ -2,17 +2,9 @@ import numpy
 
 class Utils(object):
 	"""docstring for Utils"""
-	def __init__(self,encode,dim,Num_Flows):
+	def __init__(self,encode,dim,Num_Flows,valid_set):
 		super(Utils, self).__init__()
-		self.valid_set=[110,111,112,113,
-						210,211,212,213,
-						310,311,312,313,
-						120,121,122,123,
-						220,221,222,223,
-						320,321,322,323,
-						130,131,132,133,
-						230,231,232,233,
-						330,331,332,333]
+		self.valid_dic=dict.fromkeys(valid_set,None)
 		self.dim=dim
 		self.encode=encode
 		self.Num_Flows=Num_Flows
@@ -61,7 +53,7 @@ class Utils(object):
 		# TODO: instead of checking a valid set chek an invalid setS
 		road2valid=self.move(road,1)
 		road2valid=road2valid[0]*100+road2valid[1]*10+road2valid[2]		
-		valid=road2valid in self.valid_set
+		valid=road2valid in self.valid_dic
 		return valid
 
 	def derivable2road(self,derivable):		

@@ -27,6 +27,11 @@ class Adaptive_Routing_Environment(gym.Env):
 		self.vehicles={}
 		self.trans_vehicles=[]
 		self.trans_vehicles_states=[]
+		self.states=[]
+		self.acts=[]
+		self.next_states=[]
+		self.rewds=[]
+		self.dones=[]
 		self.Max_Sim_Time=Max_Sim_Time
 		self.device=device
 		self.Cnst_Rew=1
@@ -40,7 +45,7 @@ class Adaptive_Routing_Environment(gym.Env):
 						130,131,132,133,
 						230,231,232,233,
 						330,331,332,333]
-		self.utils=Utils(dim=dim,encode=encode,Num_Flows=Num_Flows)
+		self.utils=Utils(dim=dim,encode=encode,Num_Flows=Num_Flows,valid_set=self.valid_set)
 		self.stochastic_actions_probability = 0
 		self.actions = set(range(3))
 		self.id = "Adaptive Routing"
@@ -48,170 +53,150 @@ class Adaptive_Routing_Environment(gym.Env):
 		self.state_size=self.utils.get_state_diminsion()
 		self.seed()
 		self.reward_threshold = 0.0
-		self.trials = 100
+		self.trials = 5
 		self.Log=Log
 		self.skip_routing=skip_routing
-	# def step(self, desired_action):
-	# 	return self.s, self.reward, self.done, {}
-	# 	# must satisfy base agent conduct_action function line 200
-	# 	# self.next_state, self.reward, self.done, _ = self.environment.step(action)
-	def seed(self, seed=None):
-		self.np_random, seed = seeding.np_random(seed)
-		return [seed]
-	
+
 	def reset(self,episode):
 		self.eng.reset()
 		# breakpoint()
 		self.eng.set_save_replay(True)
 		self.eng.set_replay_file("replays/episode"+str(episode)+".txt")
 		self.vehicles={}
-		self.trans_vehicles=[]
-		self.trans_vehicles_states=[]
+		self.refresh()
 		self.eng.next_step()
 		return []
 		# return self.state
 		# assuming that there is no TVs at the beginning
+	
+	def refresh(self):
+		self.trans_vehicles=[]
+		self.trans_vehicles_states=[]
+		self.states=[]
+		self.acts=[]
+		self.next_states=[]
+		self.rewds=[]
+		self.dones=[]
 
 	def step(self,actions):
 		if self.Log:
 			print("Simulation Time: :{:.2f}".format(self.eng.get_current_time()))
+
 		try:
 			assert(len(self.trans_vehicles)==len(actions))
+			self.set_route(actions)
 		except Exception as e:
-			breakpoint()
-		
-		try:
-			self.set_route(self.trans_vehicles,actions)
-		except Exception as e:
-			print(e)
 			breakpoint()
 		
 		self.eng.next_step()
-		self.trans_vehicles=[]
-		self.trans_vehicles_states=[]
-		states=[]
-		acts=[]
-		next_states=[]
-		rewds=[]
-		dones=[]
+		self.refresh()
 
-		# we don't have to check if all the vehicles have arrived at their destination, 
-		# instead set an appropriate Max_Sim_Time
-		# in case we need it : 
-		# eng.get_vehicle_count==0 ==> done
+		if self.is_terminal():
+			return self.states,self.acts,self.next_states,self.rewds,self.dones,True
 
-		if self.eng.get_current_time()==self.Max_Sim_Time:
-			return states,acts,next_states,rewds,dones,True
+		
+		eng_vehicles_dic=self.get_engine_vehicles_dic()
+		self.update_env_vehicles(eng_vehicles_dic)
+		
+		for vc in eng_vehicles_dic:
+			if self.is_autonomus_off(vc):
+				continue
+			
+			if self.is_trans(vc):
+				self.transit_vc(vc)	
+	
+		return self.states,self.acts,self.next_states,self.rewds,self.dones,False
 
-		vehicles=self.eng.get_vehicle_speed().keys()
-		# vehicles=list(itertools.chain.from_iterable(self.eng.get_lane_vehicles().values()))
-		# if len(vehicles)!=0:
-		# breakpoint()
+	def set_route(self,acts):
+		vehicles=self.trans_vehicles
+		for vc,act in zip(vehicles,acts):
+			current_road=self.vehicles[vc]["road"]
+			next_road=self.get_next_road(vc,act)
+			self.vehicles[vc]["action"]=act
+			self.vehicles[vc]["next_road"]=next_road
 
+			# if self.is_rewardable(vc):	
+
+
+			road="road_"+str(next_road[0])+"_"+str(next_road[1])+"_"+str(next_road[2])
+			
+			if self.Log:	
+				print("########## setting route for vc="+str(vc)+" act="+str(act)+"#########")
+				print("current_road: "+str(current_road)+","+"new road: "+str(next_road))
+				print(self.eng.get_vehicle_info(vc)["route"])
+			
+			routing_complete=self.eng.set_vehicle_route(vc,[road])
+			
+			if self.Log:
+				print(routing_complete)
+				print(self.eng.get_vehicle_info(vc)["route"])
+
+			
+			self.vehicles[vc]["valid_action"]=routing_complete and self.utils.check_valid(next_road)
+			done,reward=self.get_reward(vc)
+			self.save_expirence(vc,reward,done)
+
+	def save_expirence(self,vc,reward,done):
+		if self.Log:
+			print(self.vehicles[vc]["road"],
+				self.vehicles[vc]["action"],
+				self.vehicles[vc]["next_road"],
+				reward)
+		self.states.append(self.utils.reshape(self.get_state(vc),vc))
+		self.acts.append(self.vehicles[vc]["action"])
+		# bug here
+		self.next_states.append(self.utils.reshape(self.get_next_state(vc),vc))
+		self.rewds.append(reward)
+		self.dones.append(done)
+
+
+	def update_env_vehicles(self,eng_vehicles_dic):
 		removable=[]
-		for vc in self.vehicles.keys():
-			if not vc in vehicles:
+		for vc in self.vehicles:
+			if not vc in eng_vehicles_dic:
 				removable.append(vc)
-
 		for vc in removable:
 			if self.Log:
 				print("vehicle "+vc+" exited the simulation")	
 			self.vehicles.pop(vc)
+
+	def transit_vc(self,vc):
 		
-		for vc in vehicles:
+		if self.is_new(vc):
+			if self.Log:
+				print("vehicle "+vc+" entered simulation")
+			
+			self.vehicles[vc]={
+			# "previous_road": None,
+			"road": self.get_road(vc),
+			"destination": self.get_destination(vc),
+			"enter time": self.eng.get_current_time(),
+			}
+		else:
+			if self.Log:
+					print("vehicle "+vc+" changed its line")
+			# self.vehicles[vc]["previous_road"]=self.vehicles[vc]["road"]
+			self.vehicles[vc]["road"]= self.get_road(vc)
 
-			if self.utils.get_flow_id(vc) in self.skip_routing:
-				# breakpoint()
-				continue
+		self.trans_vehicles.append(vc)
+		state=self.state2torch(self.get_state(vc),vc)
 
-			if vc not in self.vehicles.keys():
-				if self.Log:
-					print("vehicle "+vc+" entered simulation")
-				
-				self.trans_vehicles.append(vc)
-				self.vehicles[vc]={
-				"road": self.get_road(vc),
-				"destination": self.get_destination(vc),
-				"memory_2": None,
-				"memory_1": None,
-				"enter time": self.eng.get_current_time(),
-				"last_trans_time": self.eng.get_current_time(),
-				"last_trans_dur": 0,
-				}
-				self.vehicles[vc]["memory_0"]=[self.get_state(vc),None,False] # set the action later in set_route
-			else:
-				if self.get_road(vc) != self.vehicles[vc]["road"]:
-					if self.Log:
-						print("vehicle "+vc+" changed its line")
+		self.trans_vehicles_states.append(state)
 
-					self.trans_vehicles.append(vc)
 
-					# breakpoint()
-					self.vehicles[vc]["road"]= self.get_road(vc)
-					# self.vehicles[vc]["memory_3"]=list(self.vehicles[vc]["memory_2"]) if self.vehicles[vc]["memory_2"]!=None else None
-					self.vehicles[vc]["memory_2"]=list(self.vehicles[vc]["memory_1"]) if self.vehicles[vc]["memory_1"]!=None else None
-					self.vehicles[vc]["memory_1"]=list(self.vehicles[vc]["memory_0"]) if self.vehicles[vc]["memory_0"]!=None else None
-					self.vehicles[vc]["memory_0"][0]=self.get_state(vc)
-					self.vehicles[vc]["memory_0"][1]=None
-					self.vehicles[vc]["memory_0"][2]=False
-					self.vehicles[vc]["last_trans_dur"]=self.eng.get_current_time()-self.vehicles[vc]["last_trans_time"]
-					self.vehicles[vc]["last_trans_time"]=self.eng.get_current_time()
-					# self.vehicles[vc]["last_act"]=self.vehicles[vc]["act"]
-					# breakpoint()
-					
-					if self.vehicles[vc]["memory_2"]!=None:	
-						done,reward=self.get_reward(vc)
-
-						if self.Log:
-							print(self.vehicles[vc]["memory_2"][0],
-								self.vehicles[vc]["memory_2"][1],
-								self.vehicles[vc]["memory_1"][0],
-								reward)
-
-						states.append(self.utils.reshape(self.vehicles[vc]["memory_2"][0],vc))
-						acts.append(self.vehicles[vc]["memory_2"][1])
-						next_states.append(self.utils.reshape(self.vehicles[vc]["memory_1"][0],vc))
-						rewds.append(reward)
-						dones.append(done)
-
-		for tv in self.trans_vehicles:
-			state=self.vehicles[tv]["memory_0"][0]
-			state=self.utils.reshape(state,tv)
-			state=torch.tensor(state, device=self.device, dtype=torch.float)
-			self.trans_vehicles_states.append(state)
-				
-		return states,acts,next_states,rewds,dones,False
-
-	def get_road(self,vc):
-
-		return self.eng.get_vehicle_info(vc)["route"].split()[0]
-	
-	def get_destination(self,vc):
-		path=self.eng.get_vehicle_info(vc)["route"].split()
-		return path[len(path)-1]	
-
-	def get_state(self,vc):
-		derivable=list(map(int,self.eng.get_vehicle_info(vc)["drivable"].split('_')[1:5]))
-		road=self.utils.derivable2road(derivable)
-		destination=list(map(int,self.vehicles[vc]["destination"].split('_')[1:4]))
-		state=road+destination
+	def state2torch(self,state,vc):
+		state=torch.tensor(self.utils.reshape(state,vc), device=self.device, dtype=torch.float)
 		return state
 
 	def get_reward(self,vc):
-	
-		if not self.vehicles[vc]["memory_2"][2]:
-			road=self.vehicles[vc]["memory_1"][0][0:3]
-			roadD=self.vehicles[vc]["memory_1"][0][3:6]
+		road=self.vehicles[vc]["road"]
+		roadD=self.vehicles[vc]["destination"]		
+		
+		if not self.vehicles[vc]["valid_action"]:
 			if road==roadD:
-				
 				TT=self.eng.get_current_time()-self.vehicles[vc]["enter time"]
 				SPTT=self.utils.get_Shoretest_Path_Travel_Time(vc)
-				# print()
-				# print(vc)
-				# print(TT)
-
 				reward=1+math.exp(SPTT/TT)
-
 				if self.Log:
 					print("goal reached: {:.2f}".format(reward))
 			else:
@@ -221,15 +206,10 @@ class Adaptive_Routing_Environment(gym.Env):
 			
 			return True,reward
 
-		time=self.vehicles[vc]["last_trans_dur"]
-		state1=self.vehicles[vc]["memory_1"][0]
-		state2=self.vehicles[vc]["memory_0"][0]
-		intersec1=state1[0:2]
-		intersec2=state2[0:2]
-		intersecD=state1[3:5]
-		# road2=state2[0:3]
-		# roadD=state1[3:6]		
-
+		next_road=self.utils.derivable2road(road+[self.vehicles[vc]["action"]])
+		intersec1=road[0:2]
+		intersec2=next_road[0:2]
+		intersecD=roadD[0:2]
 
 		Dist_1_D=self.utils.get_distance(intersec1,intersecD)
 		Dist_2_D=self.utils.get_distance(intersec2,intersecD)
@@ -246,24 +226,58 @@ class Adaptive_Routing_Environment(gym.Env):
 
 		return False,reward
 
-	def set_route(self,vehicles,acts):
-		for vc,act in zip(vehicles,acts):
-			current_road=self.vehicles[vc]["memory_0"][0][0:3]
-			new_road=self.utils.move(current_road,act)
-			road="road_"+str(new_road[0])+"_"+str(new_road[1])+"_"+str(new_road[2])
-			
-			if self.Log:	
-				print("########## setting route for vc="+str(vc)+" act="+str(act)+"#########")
-				print("current_road: "+str(current_road)+","+"new road: "+str(new_road))
-				print(self.eng.get_vehicle_info(vc)["route"])
-			
-			routing_complete=self.eng.set_vehicle_route(vc,[road])
-			
-			if self.Log:
-				print(routing_complete)
-				print(self.eng.get_vehicle_info(vc)["route"])
-			# assert(routing_complete)			
-			# breakpoint()
-			self.vehicles[vc]["memory_0"][1]=act
-			self.vehicles[vc]["memory_0"][2]=routing_complete and self.utils.check_valid(new_road)
-			
+
+	def seed(self, seed=None):
+		self.np_random, seed = seeding.np_random(seed)
+		return [seed]
+	
+	def is_rewardable(self,vc):
+		
+		return vc in self.vehicles and "action" in self.vehicles[vc]
+	
+	def is_terminal(self):
+		
+		return self.eng.get_vehicle_count==0 or self.eng.get_current_time()==self.Max_Sim_Time
+
+	def is_autonomus_off(self,vc):
+		
+		return self.utils.get_flow_id(vc) in self.skip_routing
+	
+	def is_new(self,vc):
+		
+		return vc not in self.vehicles
+
+	def is_trans(self,vc):
+		return True if self.is_new(vc) else self.get_road(vc) != self.vehicles[vc]["road"]
+
+	def get_engine_vehicles_dic(self):
+		
+		return self.eng.get_vehicle_speed()
+
+	def get_road(self,vc):
+		derivable=list(map(int,self.eng.get_vehicle_info(vc)["drivable"].split('_')[1:5]))
+		road=self.utils.derivable2road(derivable)
+		return road
+	
+	def get_next_road(self,vc,action):
+		derivable=self.get_road(vc)+[action]
+		road=self.utils.derivable2road(derivable)
+		return road
+
+	def get_destination(self,vc):
+		path=self.eng.get_vehicle_info(vc)["route"].split()
+		destination=path[len(path)-1]
+		destination=list(map(int,destination.split('_')[1:4]))
+		return destination
+
+	def get_state(self,vc):
+		source=self.vehicles[vc]["road"]
+		destination=self.vehicles[vc]["destination"]
+		state=source+destination
+		return state
+
+	def get_next_state(self,vc):
+		source=self.vehicles[vc]["next_road"]
+		destination=self.vehicles[vc]["destination"]
+		state=source+destination
+		return state
