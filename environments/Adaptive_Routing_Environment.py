@@ -16,9 +16,7 @@ import torch
 import itertools
 import numpy
 import math
-# eng = cityflow.Engine("3x3/config.json", thread_num=1)
-# for i in range(1000):
-# 	eng.next_step()
+
 class Adaptive_Routing_Environment(gym.Env):
 	environment_name = "Adaptive Routing"
 
@@ -62,7 +60,6 @@ class Adaptive_Routing_Environment(gym.Env):
 		# breakpoint()
 		self.eng.set_save_replay(True)
 		self.eng.set_replay_file("replays/episode"+str(episode)+".txt")
-		self.vehicles={}
 		self.refresh()
 		self.eng.next_step()
 		return []
@@ -70,26 +67,33 @@ class Adaptive_Routing_Environment(gym.Env):
 		# assuming that there is no TVs at the beginning
 	
 	def refresh(self):
+		self.vehicles={}
+		self.refresh_trans()
+		self.refresh_exp()
+
+	def refresh_trans(self):
 		self.trans_vehicles=[]
 		self.trans_vehicles_states=[]
+	
+	def refresh_exp(self):
 		self.states=[]
 		self.acts=[]
 		self.next_states=[]
 		self.rewds=[]
-		self.dones=[]
+		self.dones=[]	
+		
 
 	def step(self,actions):
 		if self.Log:
 			print("Simulation Time: :{:.2f}".format(self.eng.get_current_time()))
-
-		try:
-			assert(len(self.trans_vehicles)==len(actions))
-			self.set_route(actions)
-		except Exception as e:
-			breakpoint()
+		self.refresh_exp()
+		for vc,act in zip(self.trans_vehicles,actions):
+			self.set_route(vc,act)
+			done,reward=self.get_reward(vc)
+			self.save_expirence(vc,reward,done)
 		
 		self.eng.next_step()
-		self.refresh()
+		self.refresh_trans()
 
 		if self.is_terminal():
 			return self.states,self.acts,self.next_states,self.rewds,self.dones,True
@@ -107,34 +111,28 @@ class Adaptive_Routing_Environment(gym.Env):
 	
 		return self.states,self.acts,self.next_states,self.rewds,self.dones,False
 
-	def set_route(self,acts):
-		vehicles=self.trans_vehicles
-		for vc,act in zip(vehicles,acts):
-			current_road=self.vehicles[vc]["road"]
-			next_road=self.get_next_road(vc,act)
-			self.vehicles[vc]["action"]=act
-			self.vehicles[vc]["next_road"]=next_road
+	def set_route(self,vc,act):
+		current_road=self.vehicles[vc]["road"]
+		next_road=self.get_next_road(vc,act)
+		self.vehicles[vc]["action"]=act
+		self.vehicles[vc]["next_road"]=next_road
 
-			# if self.is_rewardable(vc):	
+		road="road_"+str(next_road[0])+"_"+str(next_road[1])+"_"+str(next_road[2])
+		
+		if self.Log:	
+			print("########## setting route for vc="+str(vc)+" act="+str(act)+"#########")
+			print("current_road: "+str(current_road)+","+"new road: "+str(next_road))
+			print(self.eng.get_vehicle_info(vc)["route"])
+		
+		routing_complete=self.eng.set_vehicle_route(vc,[road])
+		
+		if self.Log:
+			print(routing_complete)
+			print(self.eng.get_vehicle_info(vc)["route"])
 
+		
+		self.vehicles[vc]["valid"]=routing_complete and self.utils.check_valid(next_road)
 
-			road="road_"+str(next_road[0])+"_"+str(next_road[1])+"_"+str(next_road[2])
-			
-			if self.Log:	
-				print("########## setting route for vc="+str(vc)+" act="+str(act)+"#########")
-				print("current_road: "+str(current_road)+","+"new road: "+str(next_road))
-				print(self.eng.get_vehicle_info(vc)["route"])
-			
-			routing_complete=self.eng.set_vehicle_route(vc,[road])
-			
-			if self.Log:
-				print(routing_complete)
-				print(self.eng.get_vehicle_info(vc)["route"])
-
-			
-			self.vehicles[vc]["valid_action"]=routing_complete and self.utils.check_valid(next_road)
-			done,reward=self.get_reward(vc)
-			self.save_expirence(vc,reward,done)
 
 	def save_expirence(self,vc,reward,done):
 		if self.Log:
@@ -171,6 +169,7 @@ class Adaptive_Routing_Environment(gym.Env):
 			"road": self.get_road(vc),
 			"destination": self.get_destination(vc),
 			"enter time": self.eng.get_current_time(),
+			"valid":True
 			}
 		else:
 			if self.Log:
@@ -189,11 +188,11 @@ class Adaptive_Routing_Environment(gym.Env):
 		return state
 
 	def get_reward(self,vc):
-		road=self.vehicles[vc]["road"]
+		next_road=self.vehicles[vc]["next_road"]
 		roadD=self.vehicles[vc]["destination"]		
 		
-		if not self.vehicles[vc]["valid_action"]:
-			if road==roadD:
+		if not self.vehicles[vc]["valid"]:
+			if next_road==roadD:
 				TT=self.eng.get_current_time()-self.vehicles[vc]["enter time"]
 				SPTT=self.utils.get_Shoretest_Path_Travel_Time(vc)
 				reward=1+math.exp(SPTT/TT)
@@ -206,9 +205,8 @@ class Adaptive_Routing_Environment(gym.Env):
 			
 			return True,reward
 
-		next_road=self.utils.derivable2road(road+[self.vehicles[vc]["action"]])
-		intersec1=road[0:2]
-		intersec2=next_road[0:2]
+		intersec1=next_road[0:2]
+		intersec2=self.utils.change_position(next_road[0:2],next_road[2])
 		intersecD=roadD[0:2]
 
 		Dist_1_D=self.utils.get_distance(intersec1,intersecD)
@@ -248,7 +246,7 @@ class Adaptive_Routing_Environment(gym.Env):
 		return vc not in self.vehicles
 
 	def is_trans(self,vc):
-		return True if self.is_new(vc) else self.get_road(vc) != self.vehicles[vc]["road"]
+		return self.is_new(vc) or (self.vehicles[vc]["valid"] and self.get_road(vc) != self.vehicles[vc]["road"])
 
 	def get_engine_vehicles_dic(self):
 		
