@@ -40,7 +40,7 @@ class Adaptive_Routing_Environment(gym.Env):
 						130,131,132,133,
 						230,231,232,233,
 						330,331,332,333]
-		self.utils=Utils(dim=dim,encode=encode,Num_Flows=Num_Flows)
+		self.utils=Utils(dim=dim,encode=encode,Num_Flows=Num_Flows,valid_set=self.valid_set)
 		self.stochastic_actions_probability = 0
 		self.actions = set(range(3))
 		self.id = "Adaptive Routing"
@@ -215,7 +215,7 @@ class Adaptive_Routing_Environment(gym.Env):
 				if self.Log:
 					print("goal reached: {:.2f}".format(reward))
 			else:
-				reward=-4
+				reward=-2
 				if self.Log:
 					print("dead-end")
 			
@@ -237,7 +237,7 @@ class Adaptive_Routing_Environment(gym.Env):
 		# reward= (Dist_1_D-Dist_2_D)*10
 
 		if Dist_1_D>Dist_2_D:
-				reward=0.5
+				reward=0
 		else:
 				reward=-1
 		

@@ -10,6 +10,7 @@ import time
 from nn_builder.pytorch.NN import NN
 # from tensorboardX import SummaryWriter
 from torch.optim import optimizer
+from utilities.data_structures.Replay_Buffer import Replay_Buffer
 
 class Base_Agent(object):
 
@@ -44,6 +45,7 @@ class Base_Agent(object):
         self.turn_off_exploration = False
         gym.logger.set_level(40)  # stops it from printing an unnecessary warning
         self.log_game_info()
+        self.lanes_dic=config.environment.lanes_dic
 
     def step(self):
         """Takes a step in the game. This method must be overriden by any agent"""
@@ -292,8 +294,10 @@ class Base_Agent(object):
                 experience = state, action, reward, next_state, done
                 memory.add_experience(*experience)
 
-    def take_optimisation_step(self, optimizer, network, loss, clipping_norm=None, retain_graph=False):
+    def take_optimisation_step(self, agent_id, loss, clipping_norm=None, retain_graph=False):
         """Takes an optimisation step by calculating gradients given the loss and then updating the parameters"""
+        network=self.agent_dic[agent_id]["NN"]
+        optimizer=self.agent_dic[agent_id]["optimizer"]
         if not isinstance(network, list): network = [network]
         optimizer.zero_grad() #reset gradients to 0
         loss.backward(retain_graph=retain_graph) #this calculates the gradients
@@ -349,6 +353,42 @@ class Base_Agent(object):
                   columns_of_data_to_be_embedded=hyperparameters["columns_of_data_to_be_embedded"],
                   embedding_dimensions=hyperparameters["embedding_dimensions"], y_range=hyperparameters["y_range"],
                   random_seed=seed).to(self.device)
+
+
+    def create_agent_dic(self, input_dim, key_to_use=None, override_seed=None, hyperparameters=None):
+        """Creates a neural network for the agents to use
+        lanes_dic is a dictionary with the road-network lanes as keys and number of actions as values"""
+        if hyperparameters is None: hyperparameters = self.hyperparameters
+        if key_to_use: hyperparameters = hyperparameters[key_to_use]
+        if override_seed: seed = override_seed
+        else: seed = self.config.seed
+
+        default_hyperparameter_choices = {"output_activation": None, "hidden_activations": "relu", "dropout": 0.0,
+                                          "initialiser": "default", "batch_norm": False,
+                                          "columns_of_data_to_be_embedded": [],
+                                          "embedding_dimensions": [], "y_range": ()}
+
+        for key in default_hyperparameter_choices:
+            if key not in hyperparameters.keys():
+                hyperparameters[key] = default_hyperparameter_choices[key]
+
+        lanes_dic=self.lanes_dic
+        agent_dic={}
+        for lane in lanes_dic:
+            agent_dic[lane]["NN"]=NN(input_dim=input_dim, layers_info=hyperparameters["linear_hidden_units"] + [lanes_dic[lane]],
+                  output_activation=hyperparameters["final_layer_activation"],
+                  batch_norm=hyperparameters["batch_norm"], dropout=hyperparameters["dropout"],
+                  hidden_activations=hyperparameters["hidden_activations"], initialiser=hyperparameters["initialiser"],
+                  columns_of_data_to_be_embedded=hyperparameters["columns_of_data_to_be_embedded"],
+                  embedding_dimensions=hyperparameters["embedding_dimensions"], y_range=hyperparameters["y_range"],
+                  random_seed=seed).to(self.device)
+            agent_dic[lane]["optimizer"]=optim.Adam(agent_dic[lane]["NN"].parameters(),
+                                              lr=self.hyperparameters["learning_rate"], eps=1e-4)
+
+            agent_dic[lane]["memory"]= Replay_Buffer(self.hyperparameters["buffer_size"], self.hyperparameters["batch_size"], config.seed, self.device)
+
+        return     
+
 
     def turn_on_any_epsilon_greedy_exploration(self):
         """Turns off all exploration with respect to the epsilon greedy exploration strategy"""
