@@ -44,9 +44,19 @@ class Adaptive_Routing_Environment(gym.Env):
 						230,231,232,233,
 						330,331,332,333]
 
-		self.lanes_dic={}
-		# TODO
-		
+		self.lanes_dic={
+						110:3,111:3,
+						210:3,211:3,212:3,
+						310:3,311:3,
+						120:3,121:3,123:3,
+						220:3,221:3,222:3,223:3,
+						321:3,322:3,323:3,
+						131:3,133:3,
+						230:3,232:3,233:3,
+						332:3,333:3
+		}
+
+
 		self.utils=Utils(dim=dim,encode=encode,Num_Flows=Num_Flows,valid_set=self.valid_set)
 		self.stochastic_actions_probability = 0
 		self.actions = set(range(3))
@@ -89,7 +99,6 @@ class Adaptive_Routing_Environment(gym.Env):
 		self.rewds=[]
 		self.dones=[]	
 		
-
 	def step(self,actions):
 		if self.Log:
 			print("Simulation Time: :{:.2f}".format(self.eng.get_current_time()))
@@ -151,7 +160,6 @@ class Adaptive_Routing_Environment(gym.Env):
 		
 		self.vehicles[vc]["memory0"]["valid"]=routing_complete and self.utils.check_valid(next_road)
 
-
 	def save_expirence(self,vc,reward,done):
 		if self.Log:
 			print(self.vehicles[vc]["memory2"]["road"],
@@ -160,7 +168,7 @@ class Adaptive_Routing_Environment(gym.Env):
 				reward)
 		self.states.append(self.utils.reshape(self.get_state(vc,"memory2"),vc))
 		self.acts.append(self.vehicles[vc]["memory2"]["action"])
-		# bug here
+		# TODO: bug here
 		self.next_states.append(self.utils.reshape(self.get_state(vc,"memory1"),vc))
 		self.rewds.append(reward)
 		self.dones.append(done)

@@ -9,7 +9,8 @@ import time
 # import tensorflow as tf
 from nn_builder.pytorch.NN import NN
 # from tensorboardX import SummaryWriter
-from torch.optim import optimizer
+# from torch.optim import optimizer as optim
+import torch.optim as optim
 from utilities.data_structures.Replay_Buffer import Replay_Buffer
 
 class Base_Agent(object):
@@ -262,8 +263,9 @@ class Base_Agent(object):
                 return ix
         return -1
 
-    def update_learning_rate(self, starting_lr,  optimizer):
+    def update_learning_rate(self, starting_lr):
         """Lowers the learning rate according to how close we are to the solution"""
+        # TODO: Why this update rule?
         if len(self.rolling_results) > 0:
             last_rolling_score = self.rolling_results[-1]
             if last_rolling_score > 0.75 * self.average_score_required_to_win:
@@ -276,23 +278,22 @@ class Base_Agent(object):
                 new_lr = starting_lr / 2.0
             else:
                 new_lr = starting_lr
-            for g in optimizer.param_groups:
-                g['lr'] = new_lr
+            for agent in self.agent_dic.values():
+                for g in agent["optimizer"].param_groups:
+                    g['lr'] = new_lr
+        
         if random.random() < 0.001: self.logger.info("Learning rate {}".format(new_lr))
 
-    def enough_experiences_to_learn_from(self):
+    def enough_experiences_to_learn_from(self,agent_id):
         """Boolean indicated whether there are enough experiences in the memory buffer to learn from"""
-        return len(self.memory) > self.hyperparameters["batch_size"]
+        return len(self.agent_dic[agent_id]["memory"]) > self.hyperparameters["batch_size"]
 
-    def save_experience(self, memory=None, experience=None):
+    def save_experience(self):
         """Saves the recent experience to the memory buffer"""
-        if memory is None: memory = self.memory
-
-        assert(experience==None)
-        if experience is None:
-            for state,action,reward,next_state,done in zip(self.mem_states,self.mem_actions,self.mem_rewards,self.mem_next_states,self.mem_done):
-                experience = state, action, reward, next_state, done
-                memory.add_experience(*experience)
+        for state,action,reward,next_state,done in zip(self.mem_states,self.mem_actions,self.mem_rewards,self.mem_next_states,self.mem_done):
+            agent_id=self.get_agent_id(state)
+            experience = state, action, reward, next_state, done
+            self.agent_dic[agent_id]["memory"].add_experience(*experience)
 
     def take_optimisation_step(self, agent_id, loss, clipping_norm=None, retain_graph=False):
         """Takes an optimisation step by calculating gradients given the loss and then updating the parameters"""
@@ -375,19 +376,23 @@ class Base_Agent(object):
         lanes_dic=self.lanes_dic
         agent_dic={}
         for lane in lanes_dic:
-            agent_dic[lane]["NN"]=NN(input_dim=input_dim, layers_info=hyperparameters["linear_hidden_units"] + [lanes_dic[lane]],
-                  output_activation=hyperparameters["final_layer_activation"],
-                  batch_norm=hyperparameters["batch_norm"], dropout=hyperparameters["dropout"],
-                  hidden_activations=hyperparameters["hidden_activations"], initialiser=hyperparameters["initialiser"],
-                  columns_of_data_to_be_embedded=hyperparameters["columns_of_data_to_be_embedded"],
-                  embedding_dimensions=hyperparameters["embedding_dimensions"], y_range=hyperparameters["y_range"],
-                  random_seed=seed).to(self.device)
+            agent_dic[lane]={}
+            agent_dic[lane]["NN"]=NN(input_dim=input_dim, 
+                    layers_info=hyperparameters["linear_hidden_units"] + [lanes_dic[lane]],
+                    output_activation=hyperparameters["final_layer_activation"],
+                    batch_norm=hyperparameters["batch_norm"], dropout=hyperparameters["dropout"],
+                    hidden_activations=hyperparameters["hidden_activations"], initialiser=hyperparameters["initialiser"],
+                    columns_of_data_to_be_embedded=hyperparameters["columns_of_data_to_be_embedded"],
+                    embedding_dimensions=hyperparameters["embedding_dimensions"], y_range=hyperparameters["y_range"],
+                    random_seed=seed).to(self.device)
+           
+            
             agent_dic[lane]["optimizer"]=optim.Adam(agent_dic[lane]["NN"].parameters(),
                                               lr=self.hyperparameters["learning_rate"], eps=1e-4)
 
-            agent_dic[lane]["memory"]= Replay_Buffer(self.hyperparameters["buffer_size"], self.hyperparameters["batch_size"], config.seed, self.device)
+            agent_dic[lane]["memory"]= Replay_Buffer(self.hyperparameters["buffer_size"], self.hyperparameters["batch_size"], self.config.seed, self.device)
 
-        return     
+        return agent_dic    
 
 
     def turn_on_any_epsilon_greedy_exploration(self):
@@ -427,3 +432,6 @@ class Base_Agent(object):
         """Copies model parameters from from_model to to_model"""
         for to_model, from_model in zip(to_model.parameters(), from_model.parameters()):
             to_model.data.copy_(from_model.data.clone())
+
+    def get_agent_id(self,state):
+        return self.environment.utils.state2road(state)

@@ -14,16 +14,12 @@ class DQN(Base_Agent):
     agent_name = "DQN"
     def __init__(self, config):
         Base_Agent.__init__(self, config)
-        # self.memory = Replay_Buffer(self.hyperparameters["buffer_size"], self.hyperparameters["batch_size"], config.seed, self.device)
         self.agent_dic = self.create_agent_dic(input_dim=self.state_size)
-        # self.q_network_optimizer = optim.Adam(self.q_network_local.parameters(),
-                                              # lr=self.hyperparameters["learning_rate"], eps=1e-4)
         self.exploration_strategy = Epsilon_Greedy_Exploration(config)
 
     def reset_game(self):
         super(DQN, self).reset_game()
-        # TODO, update for all nns
-        self.update_learning_rate(self.hyperparameters["learning_rate"], self.q_network_optimizer)
+        self.update_learning_rate(self.hyperparameters["learning_rate"])
 
     def step(self):
         """Runs a step within a game including a learning step if required"""
@@ -36,9 +32,11 @@ class DQN(Base_Agent):
             if steps==0:
                 continue
             
-            if self.time_for_q_network_to_learn():
-                for _ in range(self.hyperparameters["learning_iterations"]):
-                    self.learn()
+            if self.right_amount_of_steps_taken():
+                for agent_id in self.agent_dic:
+                    if self.enough_experiences_to_learn_from(agent_id):
+                        for _ in range(self.hyperparameters["learning_iterations"]):
+                            self.learn(agent_id)
             
             self.save_experience()
 
@@ -74,17 +72,16 @@ class DQN(Base_Agent):
             actions.append(action)   
         return actions
 
-    def learn(self):
+    def learn(self,agent_id):
         """Runs a learning iteration for the Q network on each agent"""
-        for agent_id in agent_dic:
-            memory=agent_dic[agent_id]["memory"]
-            states, actions, rewards, next_states, dones = self.sample_experiences(memory) #Sample experiences
-            loss = self.compute_loss(states, next_states, rewards, actions, dones)
+        memory=self.agent_dic[agent_id]["memory"]
+        states, actions, rewards, next_states, dones = self.sample_experiences(memory) #Sample experiences
+        loss = self.compute_loss(states, next_states, rewards, actions, dones)
 
-            actions_list = [action_X.item() for action_X in actions ]
+        actions_list = [action_X.item() for action_X in actions ]
 
-            self.logger.info("Action counts {}".format(Counter(actions_list)))
-            self.take_optimisation_step(agent_id, loss, self.hyperparameters["gradient_clipping_norm"])
+        self.logger.info("Action counts {}".format(Counter(actions_list)))
+        self.take_optimisation_step(agent_id, loss, self.hyperparameters["gradient_clipping_norm"])
 
     def compute_loss(self, states, next_states, rewards, actions, dones):
         """Computes the loss required to train the Q network"""
@@ -111,7 +108,7 @@ class DQN(Base_Agent):
 
         for state in next_states:
             agent_id=self.get_agent_id(state)
-            Q_targets_next = self.agent_dic[agent_id](state).detach().max(1)[0].unsqueeze(1)
+            Q_targets_next = self.agent_dic[agent_id](state)["NN"].detach().max(1)[0].unsqueeze(1)
         return Q_targets_next
 
     def compute_q_values_for_current_states(self, rewards, Q_targets_next, dones):
@@ -123,17 +120,17 @@ class DQN(Base_Agent):
     def compute_expected_q_values(self, states, actions):
         """Computes the expected q_values we will use to create the loss to train the Q network"""
         agent_id=self.get_agent_id(state)
-        Q_expected = self.agent_dic[agent_id](state).gather(1, actions.long()) #must convert actions to long so can be used as index
+        Q_expected = self.agent_dic[agent_id](state)["NN"].gather(1, actions.long()) #must convert actions to long so can be used as index
         return Q_expected
 
     def locally_save_policy(self):
         """Saves the policy"""
         torch.save(self.q_network_local.state_dict(), "Models/{}_local_network.pt".format(self.agent_name))
 
-    def time_for_q_network_to_learn(self):
+    def time_for_q_network_to_learn(self,agent_id):
         """Returns boolean indicating whether enough steps have been taken for learning to begin and there are
         enough experiences in the replay buffer to learn from"""
-        return self.right_amount_of_steps_taken() and self.enough_experiences_to_learn_from()
+        return self.right_amount_of_steps_taken() and self.enough_experiences_to_learn_from(agent_id)
 
     def right_amount_of_steps_taken(self):
         """Returns boolean indicating whether enough steps have been taken for learning to begin"""
@@ -145,5 +142,3 @@ class DQN(Base_Agent):
         states, actions, rewards, next_states, dones = experiences
         return states, actions, rewards, next_states, dones
 
-    def get_agent_id(self,state):
-        # return the id as a string
