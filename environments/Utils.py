@@ -1,10 +1,11 @@
 import numpy
+import torch
 
 class Utils(object):
 	"""docstring for Utils"""
-	def __init__(self,encode,dim,Num_Flows,valid_set):
+	def __init__(self,encode,dim,Num_Flows,valid_dic):
 		super(Utils, self).__init__()
-		self.valid_dic=dict.fromkeys(valid_set,None)
+		self.valid_dic=valid_dic
 		self.dim=dim
 		self.encode=encode
 		self.Num_Flows=Num_Flows
@@ -51,10 +52,11 @@ class Utils(object):
 
 	def check_valid(self,road):
 		# TODO: instead of checking a valid set chek an invalid setS
-		road2valid=self.move(road,1)
-		road2valid=road2valid[0]*100+road2valid[1]*10+road2valid[2]		
-		valid=road2valid in self.valid_dic
-		return valid
+		# road2valid=self.move(road,1)
+		road=road[0]*100+road[1]*10+road[2]		
+		# valid=road in self.valid_dic
+		# breakpoint()
+		return road in self.valid_dic
 
 	def derivable2road(self,derivable):		
 		return self.move(derivable[0:3],derivable[3])
@@ -136,3 +138,27 @@ class Utils(object):
 
 		return None
 		
+	def state2road(self,state):
+		# breakpoint()
+		# column=state[0][0]*0+state[0][1]*1+state[0][2]*2+state[0][3]*3+state[0][4]*4
+		# row=state[0][5]*0+state[0][6]*1+state[0][7]*2+state[0][8]*3+state[0][9]*4
+		# lane=state[0][10]*0+state[0][11]*1+state[0][12]*2
+		try:
+			if torch.is_tensor(state):
+				state=state[0].cpu().detach().numpy().tolist()
+			column=state[0]*0+state[1]*1+state[2]*2+state[3]*3+state[4]*4
+			row=state[5]*0+state[6]*1+state[7]*2+state[8]*3+state[9]*4
+			lane=state[10]*0+state[11]*1+state[12]*2+state[13]*3
+		except:
+			breakpoint()
+
+		# if torch.is_tensor(state):
+		# 	state=state[0].cpu().detach().numpy().tolist()
+		# column=state[0]*0+state[1]*1+state[2]*2+state[3]*3+state[4]*4
+		# row=state[5]*0+state[6]*1+state[7]*2+state[8]*3+state[9]*4
+		# lane=state[10]*0+state[11]*1+state[12]*2
+		# breakpoint()
+		return int(column*100+row*10+lane)
+
+	def road2int(self,road):
+		return road[0]*100+road[1]*10+road[2]

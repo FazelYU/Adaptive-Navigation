@@ -34,30 +34,20 @@ class Adaptive_Routing_Environment(gym.Env):
 		self.device=device
 		self.Cnst_Rew=1
 		self.scale_factor=100
-		self.valid_set=[110,111,112,113,
-						210,211,212,213,
-						310,311,312,313,
-						120,121,122,123,
-						220,221,222,223,
-						320,321,322,323,
-						130,131,132,133,
-						230,231,232,233,
-						330,331,332,333]
-
 		self.lanes_dic={
 						110:3,111:3,
 						210:3,211:3,212:3,
-						310:3,311:3,
+						311:3,312:3,
 						120:3,121:3,123:3,
 						220:3,221:3,222:3,223:3,
 						321:3,322:3,323:3,
-						131:3,133:3,
+						130:3,133:3,
 						230:3,232:3,233:3,
 						332:3,333:3
 		}
 
 
-		self.utils=Utils(dim=dim,encode=encode,Num_Flows=Num_Flows,valid_set=self.valid_set)
+		self.utils=Utils(dim=dim,encode=encode,Num_Flows=Num_Flows,valid_dic=self.lanes_dic)
 		self.stochastic_actions_probability = 0
 		self.actions = set(range(3))
 		self.id = "Adaptive Routing"
@@ -102,63 +92,57 @@ class Adaptive_Routing_Environment(gym.Env):
 	def step(self,actions):
 		if self.Log:
 			print("Simulation Time: :{:.2f}".format(self.eng.get_current_time()))
-		self.refresh_exp()
 
 		if self.manual_drive:
 			for i in range(len(actions)):
 				actions[i]=self.manual_drive_route[self.iteration]
-			
-
-		for vc,act in zip(self.trans_vehicles,actions):
-			self.set_route(vc,act)
-			if self.vehicles[vc]["memory2"]!=None:
-				done,reward=self.get_reward(vc)
-				self.save_expirence(vc,reward,done)
-			
+		
+		self.set_route(self.trans_vehicles,actions)	
 		
 		self.eng.next_step()
-		self.refresh_trans()
-
+		
 		if self.is_terminal():
 			return self.states,self.acts,self.next_states,self.rewds,self.dones,True
-
 		
+		self.refresh_trans()	
+		self.refresh_exp()
 		eng_vehicles_dic=self.get_engine_vehicles_dic()
 		self.update_env_vehicles(eng_vehicles_dic)
+		# ---------------------------------------------
 		
 		for vc in eng_vehicles_dic:
-			if self.is_autonomus_off(vc):
+			if self.is_autonomus_off(vc) or not self.is_trans(vc):
 				continue
-			
-			if self.is_trans(vc):
-				if self.manual_drive:
-					self.iteration+=1
 
-				self.transit_vc(vc)	
+			self.transit_env_vc(vc)
+# BUG
+			if self.vehicles[vc]["memory0"]["valid"]:
+				self.add_to_next_trans_for_routing(vc)
+
+			if self.vehicles[vc]["memory2"]!=None:
+				done,reward=self.get_reward(vc)
+				self.save_expirence(vc,reward,done)	
+
+			if self.manual_drive:
+				self.iteration+=1	
 	
 		return self.states,self.acts,self.next_states,self.rewds,self.dones,False
 
-	def set_route(self,vc,act):
-		current_road=self.vehicles[vc]["memory0"]["road"]
-		next_road=self.get_next_road(vc,act)
-		self.vehicles[vc]["memory0"]["action"]=act
-		# self.vehicles[vc]["memory0"]["next_road"]=next_road
+	def set_route(self,VCs,ACTs):
+		for vc,act in zip(VCs,ACTs):
+			current_road=self.vehicles[vc]["memory0"]["road"]
+			next_road=self.get_next_road(vc,act)
+			road="road_"+str(next_road[0])+"_"+str(next_road[1])+"_"+str(next_road[2])
+			routing_complete=self.eng.set_vehicle_route(vc,[road])
+			self.vehicles[vc]["memory0"]["action"]=act
+			self.vehicles[vc]["memory0"]["valid"]=routing_complete and self.utils.check_valid(next_road)
 
-		road="road_"+str(next_road[0])+"_"+str(next_road[1])+"_"+str(next_road[2])
-		
-		if self.Log:	
-			print("########## setting route for vc="+str(vc)+" act="+str(act)+"#########")
-			print("current_road: "+str(current_road)+","+"new road: "+str(next_road))
-			print(self.eng.get_vehicle_info(vc)["route"])
-		
-		routing_complete=self.eng.set_vehicle_route(vc,[road])
-		
-		if self.Log:
-			print(routing_complete)
-			print(self.eng.get_vehicle_info(vc)["route"])
-
-		
-		self.vehicles[vc]["memory0"]["valid"]=routing_complete and self.utils.check_valid(next_road)
+			if self.Log:	
+				print("########## setting route for vc="+str(vc)+" act="+str(act)+"#########")
+				print("current_road: "+str(current_road)+","+"new road: "+str(next_road))
+				print("routing_complete:"+ str(routing_complete))
+				print("next_road_valid:"+str(self.utils.check_valid(next_road)))
+				print(self.eng.get_vehicle_info(vc)["route"])	
 
 	def save_expirence(self,vc,reward,done):
 		if self.Log:
@@ -184,7 +168,7 @@ class Adaptive_Routing_Environment(gym.Env):
 				print("vehicle "+vc+" exited the simulation")	
 			self.vehicles.pop(vc)
 
-	def transit_vc(self,vc):
+	def transit_env_vc(self,vc):
 		
 		if self.is_new(vc):
 			if self.Log:
@@ -214,11 +198,14 @@ class Adaptive_Routing_Environment(gym.Env):
 			except Exception as e:
 				breakpoint()
 
-
+	def add_to_next_trans_for_routing(self,vc):
+		try:
+			assert(self.utils.road2int(self.vehicles[vc]["memory0"]["road"]) in self.lanes_dic)
+		except:
+			breakpoint()
 		self.trans_vehicles.append(vc)
 		state=self.state2torch(self.get_state(vc,"memory0"),vc)
 		self.trans_vehicles_states.append(state)
-
 
 	def state2torch(self,state,vc):
 		state=torch.tensor(self.utils.reshape(state,vc), device=self.device, dtype=torch.float)

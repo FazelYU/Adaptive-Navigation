@@ -54,9 +54,12 @@ class DQN(Base_Agent):
         for state in states:
             if isinstance(state, np.int64) or isinstance(state, int): state = np.array([state])
             state = state.float().unsqueeze(0).to(self.device)
-            
             agent_id=self.get_agent_id(state)
-            
+            try:
+                assert(agent_id in self.lanes_dic)
+            except:
+                breakpoint()
+
             if len(state.shape) < 2: state = state.unsqueeze(0)            
             q_network_local=self.agent_dic[agent_id]["NN"]
             q_network_local.eval() #puts network in evaluation mode
