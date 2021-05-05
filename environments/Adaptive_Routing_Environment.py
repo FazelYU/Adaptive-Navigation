@@ -58,7 +58,7 @@ class Adaptive_Routing_Environment(gym.Env):
 		self.trials = 5
 		self.Log=Log
 		self.skip_routing=skip_routing
-		self.manual_drive_route=[0,2,2,0,1,1]
+		self.manual_drive_route=[2,2,2,0,1,1]
 		self.iteration=-1
 		self.manual_drive=False
 
@@ -115,7 +115,7 @@ class Adaptive_Routing_Environment(gym.Env):
 				continue
 
 			self.transit_env_vc(vc)
-# BUG
+
 			if self.vehicles[vc]["memory0"]["valid"]:
 				self.add_to_next_trans_for_routing(vc)
 
@@ -150,6 +150,14 @@ class Adaptive_Routing_Environment(gym.Env):
 				self.vehicles[vc]["memory2"]["action"],
 				self.vehicles[vc]["memory1"]["road"],
 				reward)
+		
+		state=self.utils.reshape(self.get_state(vc,"memory2"),vc)
+		road_id=self.utils.state2road(state)
+		try:
+			assert(road_id in self.lanes_dic)
+		except:
+			breakpoint()
+		
 		self.states.append(self.utils.reshape(self.get_state(vc,"memory2"),vc))
 		self.acts.append(self.vehicles[vc]["memory2"]["action"])
 		# TODO: bug here
@@ -189,7 +197,8 @@ class Adaptive_Routing_Environment(gym.Env):
 			}
 		else:
 			if self.Log:
-					print("vehicle "+vc+" changed its line")
+				print("vehicle "+vc+" changed its line")
+				# breakpoint()
 			# self.vehicles[vc]["previous_road"]=self.vehicles[vc]["road"]
 			try:
 				self.vehicles[vc]["memory2"]=None if self.vehicles[vc]["memory1"]==None else self.vehicles[vc]["memory1"].copy()
@@ -253,7 +262,6 @@ class Adaptive_Routing_Environment(gym.Env):
 				print("moving reward: "+ str(reward))
 
 		return False,reward
-
 
 	def seed(self, seed=None):
 		self.np_random, seed = seeding.np_random(seed)

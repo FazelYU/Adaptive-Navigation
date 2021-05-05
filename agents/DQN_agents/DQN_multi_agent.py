@@ -88,31 +88,64 @@ class DQN(Base_Agent):
 
     def compute_loss(self, states, next_states, rewards, actions, dones):
         """Computes the loss required to train the Q network"""
+        agent_id=self.get_agent_id(states[0].unsqueeze(0))
+
         with torch.no_grad():
             Q_targets = self.compute_q_targets(next_states, rewards, dones)
-        Q_expected = self.compute_expected_q_values(states, actions)
+        
+        Q_expected = self.compute_expected_q_values(agent_id, states, actions)
         loss = F.mse_loss(Q_expected, Q_targets)
         return loss
 
     def compute_q_targets(self, next_states, rewards, dones):
         """Computes the q_targets we will compare to predicted q values to create the loss to train the Q network"""
-        Q_targets_next = self.compute_q_values_for_next_states(next_states)
+        Q_targets_next = self.compute_q_values_for_next_states(next_states,dones)
         Q_targets = self.compute_q_values_for_current_states(rewards, Q_targets_next, dones)
         return Q_targets
 
-    def compute_q_values_for_next_states(self, next_states):
+    def compute_q_values_for_next_states(self, next_states,dones):
         """Computes the q_values for next state we will use to create the loss to train the Q network"""
-        # divide the next-states into batches with different agent_id
-        # compute the q-target-next
-        # return results in order
-         # or
-        #I can forget about batches and performance, just compute q-targets one by one
-        # TODO: change for batches
-
-        for state in next_states:
+                                                                                                # divide the next-states into batches with different agent_id
+                                                                                                # compute the q-target-next
+                                                                                                # return results in order
+                                                                                                 # or
+                                                                                                #I can forget about batches and performance, just compute q-targets one by one
+                                                                                                # TODO: change for batches
+        
+        batch_size=next_states.size()[0]
+        Q_targets_next=torch.zeros(batch_size,1).to(self.device)
+        
+        masks_dic={}
+        for i in range(0,batch_size):
+            if dones[i]==1:
+                continue
+            state=next_states[i]
+            state=torch.unsqueeze(state,0)
             agent_id=self.get_agent_id(state)
-            Q_targets_next = self.agent_dic[agent_id](state)["NN"].detach().max(1)[0].unsqueeze(1)
+
+            if not agent_id in masks_dic:
+                masks_dic[agent_id]={} 
+                masks_dic[agent_id]["mask"]=[False]*batch_size
+                masks_dic[agent_id]["index"]=[]
+            
+            masks_dic[agent_id]["mask"][i]=True
+            masks_dic[agent_id]["index"].append(i)
+                
+
+        for agent_id in masks_dic:
+            agent_mask=torch.Tensor(masks_dic[agent_id]["mask"]).unsqueeze(1).to(self.device,dtype=torch.bool)
+            agent_states=next_states[masks_dic[agent_id]["index"]]
+            agent_Q_targets_next=self.agent_dic[agent_id]["NN"](agent_states).detach().max(1)[0].unsqueeze(1)
+            Q_targets_next.masked_scatter_(agent_mask,agent_Q_targets_next)
+
         return Q_targets_next
+
+                                                                                                        # max(1): find the max in every row of the batch
+                                                                                                        # max(0): find the max in every column of the batch
+                                                                                                        # max(1)[0]: value of the max in every row of the batch
+                                                                                                        # max(1)[1]: index of the max in every row of the batch
+        
+        
 
     def compute_q_values_for_current_states(self, rewards, Q_targets_next, dones):
         """Computes the q_values for current state we will use to create the loss to train the Q network"""
@@ -120,10 +153,10 @@ class DQN(Base_Agent):
         Q_targets_current = rewards + (self.hyperparameters["discount_rate"] * Q_targets_next * (1 - dones))
         return Q_targets_current
 
-    def compute_expected_q_values(self, states, actions):
+    def compute_expected_q_values(self, agent_id, states, actions):
         """Computes the expected q_values we will use to create the loss to train the Q network"""
-        agent_id=self.get_agent_id(state)
-        Q_expected = self.agent_dic[agent_id](state)["NN"].gather(1, actions.long()) #must convert actions to long so can be used as index
+        
+        Q_expected = self.agent_dic[agent_id]["NN"](states).gather(1, actions.long()) #must convert actions to long so can be used as index
         return Q_expected
 
     def locally_save_policy(self):
@@ -144,4 +177,3 @@ class DQN(Base_Agent):
         experiences = memory.sample()
         states, actions, rewards, next_states, dones = experiences
         return states, actions, rewards, next_states, dones
-

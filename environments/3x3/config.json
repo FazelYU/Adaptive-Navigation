@@ -5,7 +5,7 @@
 	"roadnetFile": "roadnet.json", 
 	"flowFile": "flow.json", 
 	"rlTrafficLight": false,
-	"laneChange": true,
+	"laneChange": false,
 	"saveReplay": true,
 	"roadnetLogFile": "replay_roadnet.json", 
 	"replayLogFile": "replay.txt"

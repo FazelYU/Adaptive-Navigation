@@ -33,13 +33,13 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu") #device is
 config = Config()
 config.seed = 1
 
-config.environment = Adaptive_Routing_Environment(dim=3,encode="one_hot",Num_Flows=1,skip_routing=[],Max_Sim_Time=200,device=device,Log=True)
+config.environment = Adaptive_Routing_Environment(dim=3,encode="one_hot",Num_Flows=1,skip_routing=[],Max_Sim_Time=600,device=device,Log=False)
 # breakpoint()
 # num_possible_states =config.environment.utils.get_state_diminsion()
 # embedding_dimensions = [[num_possible_states, 20]]
 # print("Num possible states ", num_possible_states)
 
-config.num_episodes_to_run = 1
+config.num_episodes_to_run = 2000
 config.file_to_save_data_results = "Data_and_Graphs/Adaptive_Routing.pkl"
 config.file_to_save_results_graph = "Data_and_Graphs/Adaptive_Routing.png"
 config.show_solution_score = False
@@ -56,8 +56,8 @@ config.hyperparameters = {
     "DQN_Agents": {
         "linear_hidden_units": [30, 10],
         "learning_rate": 0.01,
-        "buffer_size": 40000,
-        "batch_size": 256,
+        "buffer_size": 10000,
+        "batch_size": 64,
         "final_layer_activation": "None",
         # "columns_of_data_to_be_embedded": [0],
         # "embedding_dimensions": embedding_dimensions,

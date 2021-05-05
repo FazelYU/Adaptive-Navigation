@@ -292,6 +292,11 @@ class Base_Agent(object):
         """Saves the recent experience to the memory buffer"""
         for state,action,reward,next_state,done in zip(self.mem_states,self.mem_actions,self.mem_rewards,self.mem_next_states,self.mem_done):
             agent_id=self.get_agent_id(state)
+            try:
+                assert(agent_id in self.lanes_dic)
+            except:
+                breakpoint()
+                
             experience = state, action, reward, next_state, done
             self.agent_dic[agent_id]["memory"].add_experience(*experience)
 
