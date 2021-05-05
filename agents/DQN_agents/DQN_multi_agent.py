@@ -105,12 +105,6 @@ class DQN(Base_Agent):
 
     def compute_q_values_for_next_states(self, next_states,dones):
         """Computes the q_values for next state we will use to create the loss to train the Q network"""
-                                                                                                # divide the next-states into batches with different agent_id
-                                                                                                # compute the q-target-next
-                                                                                                # return results in order
-                                                                                                 # or
-                                                                                                #I can forget about batches and performance, just compute q-targets one by one
-                                                                                                # TODO: change for batches
         
         batch_size=next_states.size()[0]
         Q_targets_next=torch.zeros(batch_size,1).to(self.device)

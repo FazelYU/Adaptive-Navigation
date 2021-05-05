@@ -194,6 +194,8 @@ class Base_Agent(object):
 
         while self.episode_number < num_episodes:
             try:
+                if self.episode_number%1==0:
+                    breakpoint()
                 self.reset_game()
                 self.step()
                 if save_and_print_results: self.save_and_print_result()
