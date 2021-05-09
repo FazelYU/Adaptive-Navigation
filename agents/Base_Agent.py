@@ -42,7 +42,6 @@ class Base_Agent(object):
         self.episode_number = 0
         self.device = "cuda:0" if config.use_GPU else "cpu"
         self.visualise_results_boolean = config.visualise_individual_results
-        self.global_step_number = 0
         self.turn_off_exploration = False
         gym.logger.set_level(40)  # stops it from printing an unnecessary warning
         self.log_game_info()
@@ -207,31 +206,27 @@ class Base_Agent(object):
         """Runs a step within a game including a learning step if required"""
         self.reset_game()
         while not self.done:
-            self.actions = self.pick_action()
-            self.conduct_action(self.actions)
+            actions = self.pick_action(self.environment.trans_vehicles_states)
+            
+            num_new_exp=self.conduct_action(actions)
+            
+            if num_new_exp==0:
+                continue
+            
             self.save_experience()
 
-            steps=len(self.environment.trans_vehicles_states)
-
-            if steps==0:
-                continue
             # TODD,BUG: right amount of steps are different for different agents
-            if self.right_amount_of_steps_taken():
-                for agent_id in self.agent_dic:
-                    if self.enough_experiences_to_learn_from(agent_id):
-                        for _ in range(self.hyperparameters["learning_iterations"]):
-                            self.learn(agent_id)
+            for agent_id in self.agent_dic:
+                if self.time_for_q_network_to_learn(agent_id):
+                    self.learn(agent_id)
             
-            self.global_step_number += steps
-
     
     def conduct_action(self, actions):
         """Conducts an action in the environment"""
         self.mem_states,self.mem_actions,self.mem_next_states, self.mem_rewards, self.mem_done, self.done = self.environment.step(actions)
         self.total_episode_score_so_far += sum(self.mem_rewards)
-        
         if self.hyperparameters["clip_rewards"]: self.rewards =  max(min(self.reward, 1.0), -1.0)
-
+        return len(self.mem_states)
 
     def save_and_print_result(self):
         """Saves and prints results of the game"""
@@ -302,9 +297,7 @@ class Base_Agent(object):
         
         if random.random() < 0.001: self.logger.info("Learning rate {}".format(new_lr))
 
-    def enough_experiences_to_learn_from(self,agent_id):
-        """Boolean indicated whether there are enough experiences in the memory buffer to learn from"""
-        return len(self.agent_dic[agent_id]["memory"]) > self.hyperparameters["batch_size"]
+
 
     def save_experience(self):
         """Saves the recent experience to the memory buffer"""
@@ -317,6 +310,13 @@ class Base_Agent(object):
                 
             experience = state, action, reward, next_state, done
             self.agent_dic[agent_id]["memory"].add_experience(*experience)
+            self.agent_dic[agent_id]["global_step_number"]+=1
+            # self.agent_dic[agent_id]["has_new_exp"]=True
+
+        # for agent_id in self.agent_dic:
+        #     if self.agent_dic[agent_id]["has_new_exp"]
+        #         self.agent_dic[agent_id]["global_step_number"]+=1
+        #         self.agent_dic[agent_id]["has_new_exp"]=False
 
     def take_optimisation_step(self, agent_id, loss, clipping_norm=None, retain_graph=False):
         """Takes an optimisation step by calculating gradients given the loss and then updating the parameters"""
@@ -415,6 +415,9 @@ class Base_Agent(object):
 
             agent_dic[lane]["memory"]= Replay_Buffer(self.hyperparameters["buffer_size"], self.hyperparameters["batch_size"], self.config.seed, self.device)
 
+            agent_dic[lane]["global_step_number"]=0
+            # agent_dic[lane]["has_new_exp"]=False
+
         return agent_dic    
 
 
@@ -458,3 +461,26 @@ class Base_Agent(object):
 
     def get_agent_id(self,state):
         return self.environment.utils.state2road(state)
+
+    def locally_save_policy(self):
+        """Saves the policy"""
+        torch.save(self.q_network_local.state_dict(), "Models/{}_local_network.pt".format(self.agent_name))
+
+    def time_for_q_network_to_learn(self,agent_id):
+        """Returns boolean indicating whether enough steps have been taken for learning to begin and there are
+        enough experiences in the replay buffer to learn from"""
+        return self.right_amount_of_steps_taken(agent_id) and self.enough_experiences_to_learn_from(agent_id)
+
+    def enough_experiences_to_learn_from(self,agent_id):
+        """Boolean indicated whether there are enough experiences in the memory buffer to learn from"""
+        return len(self.agent_dic[agent_id]["memory"]) > self.hyperparameters["batch_size"]
+
+    def right_amount_of_steps_taken(self,agent_id):
+        """Returns boolean indicating whether enough steps have been taken for learning to begin"""
+        return self.agent_dic[agent_id]["global_step_number"] % self.hyperparameters["update_every_n_steps"] == 0
+
+    def sample_experiences(self,memory):
+        """Draws a random sample of experience from the memory buffer"""
+        experiences = memory.sample()
+        states, actions, rewards, next_states, dones = experiences
+        return states, actions, rewards, next_states, dones

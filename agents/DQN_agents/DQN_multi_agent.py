@@ -21,13 +21,13 @@ class DQN(Base_Agent):
         super(DQN, self).reset_game()
         self.update_learning_rate(self.hyperparameters["learning_rate"])
 
-    def pick_action(self, states=None):
-        actions=[]
+    def pick_action(self, states):
         """Uses the local Q network and an epsilon greedy policy to pick an action"""
-        # PyTorch only accepts mini-batches and not single observations so we have to use unsqueeze to add
-        # a "fake" dimension to make it a mini-batch rather than a single observation
-        if states is None: states = self.environment.trans_vehicles_states
-                                                                                       # TODO: batchify, room for optimization. neede for big flows
+                                                                                    # PyTorch only accepts mini-batches and not single observations so we have to use unsqueeze to add
+                                                                                    # a "fake" dimension to make it a mini-batch rather than a single observation
+                                                                                    # TODO: batchify, room for optimization. needed for big flows
+        
+        actions=[]
         for state in states:
             if isinstance(state, np.int64) or isinstance(state, int): state = np.array([state])
             state = state.float().unsqueeze(0).to(self.device)
@@ -55,17 +55,15 @@ class DQN(Base_Agent):
     def learn(self,agent_id):
         """Runs a learning iteration for the Q network on each agent"""
         memory=self.agent_dic[agent_id]["memory"]
-        states, actions, rewards, next_states, dones = self.sample_experiences(memory) #Sample experiences
-        loss = self.compute_loss(states, next_states, rewards, actions, dones)
+        for _ in range(self.hyperparameters["learning_iterations"]):
+            states, actions, rewards, next_states, dones = self.sample_experiences(memory) #Sample experiences
+            loss = self.compute_loss(agent_id, states, next_states, rewards, actions, dones)
+            actions_list = [action_X.item() for action_X in actions ]
+            self.logger.info("Action counts {}".format(Counter(actions_list)))
+            self.take_optimisation_step(agent_id, loss, self.hyperparameters["gradient_clipping_norm"])
 
-        actions_list = [action_X.item() for action_X in actions ]
-
-        self.logger.info("Action counts {}".format(Counter(actions_list)))
-        self.take_optimisation_step(agent_id, loss, self.hyperparameters["gradient_clipping_norm"])
-
-    def compute_loss(self, states, next_states, rewards, actions, dones):
+    def compute_loss(self, agent_id, states, next_states, rewards, actions, dones):
         """Computes the loss required to train the Q network"""
-        agent_id=self.get_agent_id(states[0].unsqueeze(0))
 
         with torch.no_grad():
             Q_targets = self.compute_q_targets(next_states, rewards, dones)
@@ -129,22 +127,3 @@ class DQN(Base_Agent):
         
         Q_expected = self.agent_dic[agent_id]["NN"](states).gather(1, actions.long()) #must convert actions to long so can be used as index
         return Q_expected
-
-    def locally_save_policy(self):
-        """Saves the policy"""
-        torch.save(self.q_network_local.state_dict(), "Models/{}_local_network.pt".format(self.agent_name))
-
-    def time_for_q_network_to_learn(self,agent_id):
-        """Returns boolean indicating whether enough steps have been taken for learning to begin and there are
-        enough experiences in the replay buffer to learn from"""
-        return self.right_amount_of_steps_taken() and self.enough_experiences_to_learn_from(agent_id)
-
-    def right_amount_of_steps_taken(self):
-        """Returns boolean indicating whether enough steps have been taken for learning to begin"""
-        return self.global_step_number % self.hyperparameters["update_every_n_steps"] == 0
-
-    def sample_experiences(self,memory):
-        """Draws a random sample of experience from the memory buffer"""
-        experiences = memory.sample()
-        states, actions, rewards, next_states, dones = experiences
-        return states, actions, rewards, next_states, dones
