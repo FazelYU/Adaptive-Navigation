@@ -48,10 +48,6 @@ class Base_Agent(object):
         self.log_game_info()
         self.lanes_dic=config.environment.lanes_dic
 
-    def step(self):
-        """Takes a step in the game. This method must be overriden by any agent"""
-        raise ValueError("Step needs to be implemented by the agent")
-
     def get_environment_title(self):
         """Extracts name of environment from it"""
         try:
@@ -194,10 +190,8 @@ class Base_Agent(object):
 
         while self.episode_number < num_episodes:
             try:
-                if self.episode_number%1==0:
-                    breakpoint()
-                self.reset_game()
-                self.step()
+                self.run()
+                self.episode_number += 1
                 if save_and_print_results: self.save_and_print_result()
             except KeyboardInterrupt:
                 num_episodes=self.episode_number+1
@@ -209,6 +203,28 @@ class Base_Agent(object):
         if self.config.save_model: self.locally_save_policy()
         return self.game_full_episode_scores, self.rolling_results, time_taken
 
+    def run(self):
+        """Runs a step within a game including a learning step if required"""
+        self.reset_game()
+        while not self.done:
+            self.actions = self.pick_action()
+            self.conduct_action(self.actions)
+            self.save_experience()
+
+            steps=len(self.environment.trans_vehicles_states)
+
+            if steps==0:
+                continue
+            # TODD,BUG: right amount of steps are different for different agents
+            if self.right_amount_of_steps_taken():
+                for agent_id in self.agent_dic:
+                    if self.enough_experiences_to_learn_from(agent_id):
+                        for _ in range(self.hyperparameters["learning_iterations"]):
+                            self.learn(agent_id)
+            
+            self.global_step_number += steps
+
+    
     def conduct_action(self, actions):
         """Conducts an action in the environment"""
         self.mem_states,self.mem_actions,self.mem_next_states, self.mem_rewards, self.mem_done, self.done = self.environment.step(actions)

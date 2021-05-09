@@ -21,36 +21,13 @@ class DQN(Base_Agent):
         super(DQN, self).reset_game()
         self.update_learning_rate(self.hyperparameters["learning_rate"])
 
-    def step(self):
-        """Runs a step within a game including a learning step if required"""
-        while not self.done:
-            self.actions = self.pick_action()
-            self.conduct_action(self.actions)
-
-            steps=len(self.environment.trans_vehicles_states)
-
-            if steps==0:
-                continue
-            
-            if self.right_amount_of_steps_taken():
-                for agent_id in self.agent_dic:
-                    if self.enough_experiences_to_learn_from(agent_id):
-                        for _ in range(self.hyperparameters["learning_iterations"]):
-                            self.learn(agent_id)
-            
-            self.save_experience()
-
-            # self.state = self.next_state #this is to set the state for the next iteration
-            self.global_step_number += steps
-        self.episode_number += 1
-
     def pick_action(self, states=None):
         actions=[]
         """Uses the local Q network and an epsilon greedy policy to pick an action"""
         # PyTorch only accepts mini-batches and not single observations so we have to use unsqueeze to add
         # a "fake" dimension to make it a mini-batch rather than a single observation
         if states is None: states = self.environment.trans_vehicles_states
-            
+                                                                                       # TODO: batchify, room for optimization. neede for big flows
         for state in states:
             if isinstance(state, np.int64) or isinstance(state, int): state = np.array([state])
             state = state.float().unsqueeze(0).to(self.device)
@@ -60,7 +37,7 @@ class DQN(Base_Agent):
             except:
                 breakpoint()
 
-            if len(state.shape) < 2: state = state.unsqueeze(0)            
+            # if len(state.shape) < 2: state = state.unsqueeze(0)      # potential BUG       
             q_network_local=self.agent_dic[agent_id]["NN"]
             q_network_local.eval() #puts network in evaluation mode
             with torch.no_grad():

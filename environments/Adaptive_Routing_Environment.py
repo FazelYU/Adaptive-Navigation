@@ -109,7 +109,6 @@ class Adaptive_Routing_Environment(gym.Env):
 		eng_vehicles_dic=self.get_engine_vehicles_dic()
 		self.update_env_vehicles(eng_vehicles_dic)
 		# ---------------------------------------------
-		
 		for vc in eng_vehicles_dic:
 			if self.is_autonomus_off(vc) or not self.is_trans(vc):
 				continue
@@ -125,7 +124,8 @@ class Adaptive_Routing_Environment(gym.Env):
 
 			if self.manual_drive:
 				self.iteration+=1	
-	
+
+
 		return self.states,self.acts,self.next_states,self.rewds,self.dones,False
 
 	def set_route(self,VCs,ACTs):
@@ -220,9 +220,6 @@ class Adaptive_Routing_Environment(gym.Env):
 		state=torch.tensor(self.utils.reshape(state,vc), device=self.device, dtype=torch.float)
 		return state
 
-	def is_route_finished(self):
-		pass
-	
 	def get_reward(self,vc):
 		road=self.vehicles[vc]["memory2"]["road"]
 		next_road=self.vehicles[vc]["memory1"]["road"]
@@ -254,9 +251,9 @@ class Adaptive_Routing_Environment(gym.Env):
 		# reward= (Dist_1_D-Dist_2_D)*10
 
 		if Dist_1_D>Dist_2_D:
-				reward=0
+				reward=1
 		else:
-				reward=-1
+				reward=-1.5
 		
 		if self.Log:
 				print("moving reward: "+ str(reward))
