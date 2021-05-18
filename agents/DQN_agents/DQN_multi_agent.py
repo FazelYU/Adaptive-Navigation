@@ -47,7 +47,8 @@ class DQN(Base_Agent):
             # TODO
             action = self.exploration_strategy.perturb_action_for_exploration_purposes({"action_values": action_values,
                                                                                     "turn_off_exploration": self.turn_off_exploration,
-                                                                                    "episode_number": self.episode_number})
+                                                                                    "episode_number": self.agent_dic[agent_id]["episode_number"]})
+            
             self.logger.info("Q values {} -- Action chosen {}".format(action_values, action))
             actions.append(action)   
         return actions

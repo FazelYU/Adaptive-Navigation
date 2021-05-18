@@ -20,7 +20,9 @@ import math
 class Adaptive_Routing_Environment(gym.Env):
 	environment_name = "Adaptive Routing"
 
-	def __init__(self,dim,encode,Num_Flows,skip_routing,Max_Sim_Time,device,Log):
+	def __init__(self,dim,encode,Num_Flows,skip_routing,random_trips,Max_Sim_Time,device,Log):
+
+
 		self.eng = cityflow.Engine("environments/3x3/config.json", thread_num=8)
 		self.vehicles={}
 		self.trans_vehicles=[]
@@ -45,9 +47,9 @@ class Adaptive_Routing_Environment(gym.Env):
 						230:3,232:3,233:3,
 						332:3,333:3
 		}
-
-
 		self.utils=Utils(dim=dim,encode=encode,Num_Flows=Num_Flows,valid_dic=self.lanes_dic)
+
+
 		self.stochastic_actions_probability = 0
 		self.actions = set(range(3))
 		self.id = "Adaptive Routing"
@@ -61,8 +63,15 @@ class Adaptive_Routing_Environment(gym.Env):
 		self.manual_drive_route=[2,2,2,0,1,1]
 		self.iteration=-1
 		self.manual_drive=False
+		self.random_trips=random_trips
+
 
 	def reset(self,episode):
+		if self.random_trips:
+			self.utils.generate_random_trips()
+			self.eng = cityflow.Engine("environments/3x3/config.json", thread_num=8)
+
+		
 		self.eng.reset()
 		# breakpoint()
 		self.eng.set_save_replay(True)
@@ -165,7 +174,6 @@ class Adaptive_Routing_Environment(gym.Env):
 		self.rewds.append(reward)
 		self.dones.append(done)
 
-
 	def update_env_vehicles(self,eng_vehicles_dic):
 		removable=[]
 		for vc in self.vehicles:
@@ -190,7 +198,8 @@ class Adaptive_Routing_Environment(gym.Env):
 				"road":self.get_road(vc),
 				"action":None,
 				"reward":None,
-				"valid":True
+				# TODO: 2nd road in the route should be valid
+				"valid": self.utils.check_valid(self.get_road(vc))
 			},
 			"memory1":None,
 			"memory2":None
@@ -229,9 +238,10 @@ class Adaptive_Routing_Environment(gym.Env):
 		if not self.vehicles[vc]["memory2"]["valid"]:
 			# breakpoint()
 			if next_road==roadD:
-				TT=self.eng.get_current_time()-self.vehicles[vc]["enter time"]
-				SPTT=self.utils.get_Shoretest_Path_Travel_Time(vc)
-				reward=1+math.exp(SPTT/TT)
+				# TT=self.eng.get_current_time()-self.vehicles[vc]["enter time"]
+				# SPTT=self.utils.get_Shoretest_Path_Travel_Time(vc)
+				# reward=1+math.exp(SPTT/TT)
+				reward=10
 				if self.Log:
 					print("goal reached: {:.2f}".format(reward))
 			else:

@@ -39,7 +39,7 @@ class Base_Agent(object):
         self.rolling_results = []
         self.max_rolling_score_seen = float("-inf")
         self.max_episode_score_seen = float("-inf")
-        self.episode_number = 0
+        self.env_episode_number = 0
         self.device = "cuda:0" if config.use_GPU else "cpu"
         self.visualise_results_boolean = config.visualise_individual_results
         self.turn_off_exploration = False
@@ -154,7 +154,7 @@ class Base_Agent(object):
     def reset_game(self):
         """Resets the game information so we are ready to play a new episode"""
         self.environment.seed(self.config.seed)
-        self.states = self.environment.reset(self.episode_number)
+        self.states = self.environment.reset(self.env_episode_number)
 
         self.mem_states= None
         self.mem_next_states = None
@@ -182,52 +182,6 @@ class Base_Agent(object):
         self.episode_next_states.append(self.mem_next_states)
         self.episode_dones.append(self.mem_done)
 
-    def run_n_episodes(self, num_episodes=None, show_whether_achieved_goal=True, save_and_print_results=True):
-        """Runs game to completion n times and then summarises results and saves model (if asked to)"""
-        if num_episodes is None: num_episodes = self.config.num_episodes_to_run
-        start = time.time()
-
-        while self.episode_number < num_episodes:
-            try:
-                self.run()
-                self.episode_number += 1
-                if save_and_print_results: self.save_and_print_result()
-            except KeyboardInterrupt:
-                num_episodes=self.episode_number+1
-                breakpoint()
-
-
-        time_taken = time.time() - start
-        if show_whether_achieved_goal: self.show_whether_achieved_goal()
-        if self.config.save_model: self.locally_save_policy()
-        return self.game_full_episode_scores, self.rolling_results, time_taken
-
-    def run(self):
-        """Runs a step within a game including a learning step if required"""
-        self.reset_game()
-        while not self.done:
-            actions = self.pick_action(self.environment.trans_vehicles_states)
-            
-            num_new_exp=self.conduct_action(actions)
-            
-            if num_new_exp==0:
-                continue
-            
-            self.save_experience()
-
-            # TODD,BUG: right amount of steps are different for different agents
-            for agent_id in self.agent_dic:
-                if self.time_for_q_network_to_learn(agent_id):
-                    self.learn(agent_id)
-            
-    
-    def conduct_action(self, actions):
-        """Conducts an action in the environment"""
-        self.mem_states,self.mem_actions,self.mem_next_states, self.mem_rewards, self.mem_done, self.done = self.environment.step(actions)
-        self.total_episode_score_so_far += sum(self.mem_rewards)
-        if self.hyperparameters["clip_rewards"]: self.rewards =  max(min(self.reward, 1.0), -1.0)
-        return len(self.mem_states)
-
     def save_and_print_result(self):
         """Saves and prints results of the game"""
         self.save_result()
@@ -243,7 +197,7 @@ class Base_Agent(object):
         """Updates the best episode result seen so far"""
         if self.game_full_episode_scores[-1] > self.max_episode_score_seen:
             self.max_episode_score_seen = self.game_full_episode_scores[-1]
-            self.max_episode=self.episode_number
+            self.max_episode=self.env_episode_number
 
         if self.rolling_results[-1] > self.max_rolling_score_seen:
             if len(self.rolling_results) > self.rolling_score_window:
@@ -297,7 +251,57 @@ class Base_Agent(object):
         
         if random.random() < 0.001: self.logger.info("Learning rate {}".format(new_lr))
 
+# ----------------------------------------------------------------------------------------------------------------------------
+    def run_n_episodes(self, num_episodes=None, show_whether_achieved_goal=True, save_and_print_results=True):
+        """Runs game to completion n times and then summarises results and saves model (if asked to)"""
+        if num_episodes is None: num_episodes = self.config.num_episodes_to_run
+        start = time.time()
 
+        while self.env_episode_number < num_episodes:
+            try:
+                self.run()
+                self.env_episode_number += 1
+
+                for agent_id in self.agent_dic:
+                    # BUG: when memory is full the rate of the exploration stalls decreasing
+                    if self.agent_dic[agent_id]["total_exp_count"]<self.agent_dic[agent_id]["memory"].__len__():
+                        self.agent_dic[agent_id]["total_exp_count"]=self.agent_dic[agent_id]["memory"].__len__()
+                        self.agent_dic[agent_id]["episode_number"]+=1
+
+                if save_and_print_results: self.save_and_print_result()
+            except KeyboardInterrupt:
+                num_episodes=self.env_episode_number+1
+                breakpoint()
+
+
+        time_taken = time.time() - start
+        if show_whether_achieved_goal: self.show_whether_achieved_goal()
+        if self.config.save_model: self.locally_save_policy()
+        return self.game_full_episode_scores, self.rolling_results, time_taken
+
+    def run(self):
+        """Runs a step within a game including a learning step if required"""
+        self.reset_game()
+        while not self.done:
+            actions = self.pick_action(self.environment.trans_vehicles_states)
+            
+            num_new_exp=self.conduct_action(actions)
+            
+            if num_new_exp==0:
+                continue
+            
+            self.save_experience()
+
+            for agent_id in self.agent_dic:
+                if self.time_for_q_network_to_learn(agent_id):
+                    self.learn(agent_id)
+            
+    def conduct_action(self, actions):
+        """Conducts an action in the environment"""
+        self.mem_states,self.mem_actions,self.mem_next_states, self.mem_rewards, self.mem_done, self.done = self.environment.step(actions)
+        self.total_episode_score_so_far += sum(self.mem_rewards)
+        if self.hyperparameters["clip_rewards"]: self.rewards =  max(min(self.reward, 1.0), -1.0)
+        return len(self.mem_states)
 
     def save_experience(self):
         """Saves the recent experience to the memory buffer"""
@@ -310,12 +314,12 @@ class Base_Agent(object):
                 
             experience = state, action, reward, next_state, done
             self.agent_dic[agent_id]["memory"].add_experience(*experience)
-            self.agent_dic[agent_id]["global_step_number"]+=1
+            self.agent_dic[agent_id]["new_exp_count"]+=1
             # self.agent_dic[agent_id]["has_new_exp"]=True
 
         # for agent_id in self.agent_dic:
         #     if self.agent_dic[agent_id]["has_new_exp"]
-        #         self.agent_dic[agent_id]["global_step_number"]+=1
+        #         self.agent_dic[agent_id]["new_exp_count"]+=1
         #         self.agent_dic[agent_id]["has_new_exp"]=False
 
     def take_optimisation_step(self, agent_id, loss, clipping_norm=None, retain_graph=False):
@@ -347,7 +351,6 @@ class Base_Agent(object):
             break
         self.logger.info("Learning Rate {}".format(learning_rate))
 
-
     def soft_update_of_target_network(self, local_model, target_model, tau):
         """Updates the target network in the direction of the local network but by taking a step size
         less than one so the target network's parameter values trail the local networks. This helps stabilise training"""
@@ -377,7 +380,6 @@ class Base_Agent(object):
                   columns_of_data_to_be_embedded=hyperparameters["columns_of_data_to_be_embedded"],
                   embedding_dimensions=hyperparameters["embedding_dimensions"], y_range=hyperparameters["y_range"],
                   random_seed=seed).to(self.device)
-
 
     def create_agent_dic(self, input_dim, key_to_use=None, override_seed=None, hyperparameters=None):
         """Creates a neural network for the agents to use
@@ -415,11 +417,11 @@ class Base_Agent(object):
 
             agent_dic[lane]["memory"]= Replay_Buffer(self.hyperparameters["buffer_size"], self.hyperparameters["batch_size"], self.config.seed, self.device)
 
-            agent_dic[lane]["global_step_number"]=0
-            # agent_dic[lane]["has_new_exp"]=False
+            agent_dic[lane]["new_exp_count"]=0
+            agent_dic[lane]["episode_number"]=0 # num episodes with new exps 
+            agent_dic[lane]["total_exp_count"]=0
 
         return agent_dic    
-
 
     def turn_on_any_epsilon_greedy_exploration(self):
         """Turns off all exploration with respect to the epsilon greedy exploration strategy"""
@@ -469,15 +471,18 @@ class Base_Agent(object):
     def time_for_q_network_to_learn(self,agent_id):
         """Returns boolean indicating whether enough steps have been taken for learning to begin and there are
         enough experiences in the replay buffer to learn from"""
-        return self.right_amount_of_steps_taken(agent_id) and self.enough_experiences_to_learn_from(agent_id)
+        if self.enough_new_exp(agent_id) and self.enough_total_exp(agent_id):
+            self.agent_dic[agent_id]["new_exp_count"]=0
+            return True
+        return False
 
-    def enough_experiences_to_learn_from(self,agent_id):
+    def enough_total_exp(self,agent_id):
         """Boolean indicated whether there are enough experiences in the memory buffer to learn from"""
         return len(self.agent_dic[agent_id]["memory"]) > self.hyperparameters["batch_size"]
 
-    def right_amount_of_steps_taken(self,agent_id):
+    def enough_new_exp(self,agent_id):
         """Returns boolean indicating whether enough steps have been taken for learning to begin"""
-        return self.agent_dic[agent_id]["global_step_number"] % self.hyperparameters["update_every_n_steps"] == 0
+        return self.agent_dic[agent_id]["new_exp_count"]>=self.hyperparameters["update_every_n_steps"]
 
     def sample_experiences(self,memory):
         """Draws a random sample of experience from the memory buffer"""

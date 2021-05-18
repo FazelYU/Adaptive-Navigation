@@ -1,5 +1,7 @@
 import numpy
 import torch
+import json
+import random
 
 class Utils(object):
 	"""docstring for Utils"""
@@ -9,6 +11,39 @@ class Utils(object):
 		self.dim=dim
 		self.encode=encode
 		self.Num_Flows=Num_Flows
+		self.destination_list=[
+								"road_3_1_0",
+								"road_3_2_0",
+								"road_3_3_0",
+								"road_1_1_2",
+								"road_1_2_2",
+								"road_1_3_2",
+
+								"road_1_3_1",
+								"road_2_3_1",
+								"road_3_3_1",
+								"road_1_1_3",
+								"road_2_1_3",
+								"road_3_1_3",
+							]
+		self.source_list=[
+							"road_0_1_0",
+							"road_0_2_0",
+							"road_0_3_0",
+
+							"road_4_1_2",
+							"road_4_2_2",
+							"road_4_3_2",
+
+
+							"road_1_0_1",
+							"road_2_0_1",
+							"road_3_0_1",
+
+							"road_1_4_3",
+							"road_2_4_3",
+							"road_3_4_3",
+		]
 
 	def change_row(self,intersec,val):
 		intersec[1]+=val
@@ -105,12 +140,16 @@ class Utils(object):
 			return intersec+[dir]
 			
 	def reshape(self,state,vehicle_id):
-		if self.Num_Flows!=0:
-			one_hot_vid=[-100]*self.Num_Flows
-			one_hot_vid[self.get_flow_id(vehicle_id)]=100
 
 		road1=self.res_road(state[:3])
 		road2=self.res_road(state[3:])
+
+		if self.Num_Flows==0:
+			return road1+road2
+		
+		one_hot_vid=[-100]*self.Num_Flows
+		one_hot_vid[self.get_flow_id(vehicle_id)]=100
+
 		return road1+road2+one_hot_vid
 
 	def get_state_diminsion(self):
@@ -162,3 +201,17 @@ class Utils(object):
 
 	def road2int(self,road):
 		return road[0]*100+road[1]*10+road[2]
+
+	def generate_random_trips(self):
+		data=[]
+		with open("environments/3x3/flow.json","r") as read_file:
+			data=json.load(read_file)
+			# breakpoint()
+			for vc in data:
+				vc["route"][0]=random.choice(self.source_list)
+				vc["route"][1]=random.choice(self.destination_list)
+			# breakpoint()
+
+		with open("environments/3x3/flow.json","w") as write_file:
+			json.dump(data,write_file,sort_keys=True, indent=4, separators=(',', ': '))
+		# breakpoint()
