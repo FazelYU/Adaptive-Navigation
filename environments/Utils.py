@@ -5,7 +5,7 @@ import random
 
 class Utils(object):
 	"""docstring for Utils"""
-	def __init__(self,encode,dim,Num_Flows,valid_dic):
+	def __init__(self,engine,encode,dim,Num_Flows,valid_dic):
 		super(Utils, self).__init__()
 		self.valid_dic=valid_dic
 		self.dim=dim
@@ -44,6 +44,11 @@ class Utils(object):
 							"road_2_4_3",
 							"road_3_4_3",
 		]
+		self.pressure_matrix=[[0]*dim for i in range(dim)]
+		self.dim=dim
+		self.press_embd_dim=3
+		self.eng=engine
+		self.vc_count_dic=self.creat_vc_count_dic()
 
 	def change_row(self,intersec,val):
 		intersec[1]+=val
@@ -140,17 +145,20 @@ class Utils(object):
 			return intersec+[dir]
 			
 	def reshape(self,state,vehicle_id):
-
+		breakpoint()
 		road1=self.res_road(state[:3])
 		road2=self.res_road(state[3:])
+		press_embd=self.get_press_embd(road1)
+
+		state=road1+road2+press_embd
 
 		if self.Num_Flows==0:
-			return road1+road2
+			return state
 		
-		one_hot_vid=[-100]*self.Num_Flows
-		one_hot_vid[self.get_flow_id(vehicle_id)]=100
+		one_hot_vid=[0]*self.Num_Flows
+		one_hot_vid[self.get_flow_id(vehicle_id)]=1
 
-		return road1+road2+one_hot_vid
+		return state+one_hot_vid
 
 	def get_state_diminsion(self):
 		if self.encode=="full_one_hot":
@@ -162,7 +170,7 @@ class Utils(object):
 		else:
 			ret=self.dim
 		
-		return ret+self.Num_Flows
+		return ret+self.Num_Flows+self.press_embd_dim
 
 	def get_flow_id(self,flow):
 		vid=list(map(int,flow.split('_')[1:3]))
@@ -206,12 +214,96 @@ class Utils(object):
 		data=[]
 		with open("environments/3x3/flow.json","r") as read_file:
 			data=json.load(read_file)
-			# breakpoint()
+			assert(len(data)!=0)
+			while len(data)<self.Num_Flows:
+				data.append(data[0].copy())
+			while len(data)>self.Num_Flows:
+				data.pop(len(data)-1)
 			for vc in data:
 				vc["route"][0]=random.choice(self.source_list)
 				vc["route"][1]=random.choice(self.destination_list)
-			# breakpoint()
 
 		with open("environments/3x3/flow.json","w") as write_file:
 			json.dump(data,write_file,sort_keys=True, indent=4, separators=(',', ': '))
+
+
+	def get_press_embd(self,road):
+		press_embd=[]
+
+
+		nroad=self.move(road,0)
+		nroad=[x-1 for x in nroad]
+		press_embd.append(self.pressure_matrix[nroad[0]][nroad[1]])
+
+		nroad=self.move(road,1)
+		nroad=[x-1 for x in nroad]
+		press_embd.append(self.pressure_matrix[nroad[0]][nroad[1]])
+
+		nroad=self.move(road,2)
+		nroad=[x-1 for x in nroad]
+		press_embd.append(self.pressure_matrix[nroad[0]][nroad[1]])
+
 		# breakpoint()
+		return press_embd
+
+	def update_pressure_matrix(self):
+		self.update_vc_count_dic()
+		for row in range(0,self.dim):
+			for column in range(0,self.dim):
+				intersec=[row,column]
+				intersec=[x+1 for x in intersec]
+				try:
+					self.pressure_matrix[row][column]=self.get_pressure(intersec)
+				except Exception as e:
+					print(e)
+					breakpoint()
+
+	def update_vc_count_dic(self):
+		lane_vc_count_dic=self.eng.get_lane_vehicle_count()
+		self.refresh_vc_count_dic()
+		for lane in lane_vc_count_dic:
+			road= self.road2int(self.lane2road(lane))
+			# if road==10:
+			# 	breakpoint()
+			self.vc_count_dic[road]+=lane_vc_count_dic[lane]
+
+	def creat_vc_count_dic(self):
+		lane_vc_count_dic=self.eng.get_lane_vehicle_count()
+		vc_count_dic={}
+		for lane in lane_vc_count_dic:
+			road= self.road2int(self.lane2road(lane))
+			if not road in vc_count_dic: vc_count_dic[road]=0
+		return vc_count_dic
+
+	def refresh_vc_count_dic(self):
+		for road in self.vc_count_dic:self.vc_count_dic[road]=0
+
+
+	def lane2road(self,lane):
+		road=list(map(int,lane.split('_')[1:4]))
+		return road		
+
+	def get_pressure(self,intersec):
+		column=intersec[0]
+		row=intersec[1]
+		in_roads=[
+			[column-1,row,0],
+			[column+1,row,2],
+			[column,row-1,1],
+			[column,row+1,3]
+		]
+		out_roads=[
+			[column,row,0],
+			[column,row,1],
+			[column,row,2],
+			[column,row,3],
+		]
+		pressure=0
+
+		for road in in_roads:
+			pressure+=self.vc_count_dic[self.road2int(road)]
+
+		for road in out_roads:
+			pressure-=self.vc_count_dic[self.road2int(road)]
+
+		return pressure

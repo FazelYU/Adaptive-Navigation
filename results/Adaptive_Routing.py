@@ -33,7 +33,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu") #device is
 config = Config()
 config.seed = 1
 
-config.environment = Adaptive_Routing_Environment(dim=3,encode="one_hot",Num_Flows=0,skip_routing=[],random_trips=True,Max_Sim_Time=600,device=device,Log=False)
+config.environment = Adaptive_Routing_Environment(dim=3,encode="one_hot",Num_Flows=1,skip_routing=[],random_trips=True,Max_Sim_Time=600,device=device,Log=False,rolling_window=10)
 # breakpoint()
 # num_possible_states =config.environment.utils.get_state_diminsion()
 # embedding_dimensions = [[num_possible_states, 20]]

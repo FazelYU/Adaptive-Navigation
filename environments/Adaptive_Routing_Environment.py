@@ -20,7 +20,7 @@ import math
 class Adaptive_Routing_Environment(gym.Env):
 	environment_name = "Adaptive Routing"
 
-	def __init__(self,dim,encode,Num_Flows,skip_routing,random_trips,Max_Sim_Time,device,Log):
+	def __init__(self,dim,encode,Num_Flows,skip_routing,random_trips,Max_Sim_Time,device,Log,rolling_window):
 
 
 		self.eng = cityflow.Engine("environments/3x3/config.json", thread_num=8)
@@ -47,7 +47,9 @@ class Adaptive_Routing_Environment(gym.Env):
 						230:3,232:3,233:3,
 						332:3,333:3
 		}
-		self.utils=Utils(dim=dim,encode=encode,Num_Flows=Num_Flows,valid_dic=self.lanes_dic)
+		self.dim=dim
+		
+		self.utils=Utils(dim=dim,engine=self.eng,encode=encode,Num_Flows=Num_Flows,valid_dic=self.lanes_dic)
 
 
 		self.stochastic_actions_probability = 0
@@ -57,7 +59,7 @@ class Adaptive_Routing_Environment(gym.Env):
 		self.state_size=self.utils.get_state_diminsion()
 		self.seed()
 		self.reward_threshold = 0.0
-		self.trials = 5
+		self.trials = rolling_window
 		self.Log=Log
 		self.skip_routing=skip_routing
 		self.manual_drive_route=[2,2,2,0,1,1]
@@ -109,7 +111,8 @@ class Adaptive_Routing_Environment(gym.Env):
 		self.set_route(self.trans_vehicles,actions)	
 		
 		self.eng.next_step()
-		
+		self.utils.update_pressure_matrix()
+
 		if self.is_terminal():
 			return self.states,self.acts,self.next_states,self.rewds,self.dones,True
 		
