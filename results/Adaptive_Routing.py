@@ -39,7 +39,7 @@ config.environment = Adaptive_Routing_Environment(dim=3,encode="one_hot",Num_Flo
 # embedding_dimensions = [[num_possible_states, 20]]
 # print("Num possible states ", num_possible_states)
 
-config.num_episodes_to_run = 10000
+config.num_episodes_to_run = 1
 config.file_to_save_data_results = "Data_and_Graphs/Adaptive_Routing.pkl"
 config.file_to_save_results_graph = "Data_and_Graphs/Adaptive_Routing.png"
 config.show_solution_score = False

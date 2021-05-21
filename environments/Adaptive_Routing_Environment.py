@@ -23,7 +23,7 @@ class Adaptive_Routing_Environment(gym.Env):
 	def __init__(self,dim,encode,Num_Flows,skip_routing,random_trips,Max_Sim_Time,device,Log,rolling_window):
 
 
-		self.eng = cityflow.Engine("environments/3x3/config.json", thread_num=8)
+		Adaptive_Routing_Environment.eng = cityflow.Engine("environments/3x3/config.json", thread_num=8)
 		self.vehicles={}
 		self.trans_vehicles=[]
 		self.trans_vehicles_states=[]
@@ -34,9 +34,7 @@ class Adaptive_Routing_Environment(gym.Env):
 		self.dones=[]
 		self.Max_Sim_Time=Max_Sim_Time
 		self.device=device
-		self.Cnst_Rew=1
-		self.scale_factor=100
-		self.lanes_dic={
+		Adaptive_Routing_Environment.lanes_dic={
 						110:3,111:3,
 						210:3,211:3,212:3,
 						311:3,312:3,
@@ -49,7 +47,7 @@ class Adaptive_Routing_Environment(gym.Env):
 		}
 		self.dim=dim
 		
-		self.utils=Utils(dim=dim,engine=self.eng,encode=encode,Num_Flows=Num_Flows,valid_dic=self.lanes_dic)
+		self.utils=Utils(dim=dim,environment=self,encode=encode,Num_Flows=Num_Flows,valid_dic=self.lanes_dic)
 
 
 		self.stochastic_actions_probability = 0
@@ -163,17 +161,17 @@ class Adaptive_Routing_Environment(gym.Env):
 				self.vehicles[vc]["memory1"]["road"],
 				reward)
 		
-		state=self.utils.reshape(self.get_state(vc,"memory2"),vc)
+		state=self.vehicles[vc]["memory2"]["state"]
 		road_id=self.utils.state2road(state)
 		try:
 			assert(road_id in self.lanes_dic)
 		except:
 			breakpoint()
 		
-		self.states.append(self.utils.reshape(self.get_state(vc,"memory2"),vc))
+		self.states.append(state)
 		self.acts.append(self.vehicles[vc]["memory2"]["action"])
-		# TODO: bug here
-		self.next_states.append(self.utils.reshape(self.get_state(vc,"memory1"),vc))
+		next_state=self.vehicles[vc]["memory1"]["state"]
+		self.next_states.append(next_state)
 		self.rewds.append(reward)
 		self.dones.append(done)
 
@@ -194,14 +192,13 @@ class Adaptive_Routing_Environment(gym.Env):
 				print("vehicle "+vc+" entered simulation")
 			
 			self.vehicles[vc]={
-			# "previous_road": None,
 			"destination": self.get_destination(vc),
 			"enter time": self.eng.get_current_time(),
 			"memory0":{
 				"road":self.get_road(vc),
 				"action":None,
 				"reward":None,
-				# TODO: 2nd road in the route should be valid
+				"state":None,
 				"valid": self.utils.check_valid(self.get_road(vc))
 			},
 			"memory1":None,
@@ -216,6 +213,7 @@ class Adaptive_Routing_Environment(gym.Env):
 				self.vehicles[vc]["memory2"]=None if self.vehicles[vc]["memory1"]==None else self.vehicles[vc]["memory1"].copy()
 				self.vehicles[vc]["memory1"]=self.vehicles[vc]["memory0"].copy()
 				self.vehicles[vc]["memory0"]["road"]=self.get_road(vc)
+				self.vehicles[vc]["memory0"]["state"]=self.utils.reshape(self.get_state(vc,"memory0"),vc)
 			except Exception as e:
 				breakpoint()
 
@@ -225,11 +223,11 @@ class Adaptive_Routing_Environment(gym.Env):
 		except:
 			breakpoint()
 		self.trans_vehicles.append(vc)
-		state=self.state2torch(self.get_state(vc,"memory0"),vc)
-		self.trans_vehicles_states.append(state)
+		state=self.vehicles[vc]["memory0"]["state"]
+		self.trans_vehicles_states.append(self.state2torch(state))
 
 	def state2torch(self,state,vc):
-		state=torch.tensor(self.utils.reshape(state,vc), device=self.device, dtype=torch.float)
+		state=torch.tensor(state, device=self.device, dtype=torch.float)
 		return state
 
 	def get_reward(self,vc):
