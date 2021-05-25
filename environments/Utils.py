@@ -5,7 +5,7 @@ import random
 
 class Utils(object):
 	"""docstring for Utils"""
-	def __init__(self,environment,encode,dim,Num_Flows,valid_dic):
+	def __init__(self,environment,encode,dim,Num_Flows,valid_dic,device):
 		super(Utils, self).__init__()
 		self.valid_dic=valid_dic
 		self.dim=dim
@@ -55,6 +55,7 @@ class Utils(object):
 		self.Num_Flow_Types=3
 		self.slow_vc_speed=7
 		self.fast_vc_speed=2*self.slow_vc_speed
+		self.device=device
 
 
 
@@ -151,12 +152,11 @@ class Utils(object):
 			intersec=self.change_position(intersec,dir)
 			return intersec+[dir]
 			
-	def reshape(self,state,vehicle_id,embed_press):
-		# breakpoint()
-		current_road=self.res_road(state[:3])
-		destination=self.res_road(state[3:])
+	def get_state(self,origin,destination,embed_press,vehicle_id):
+		reshaped_origin=self.res_road(origin)
+		reshaped_destination=self.res_road(destination)
 		if embed_press:
-			press_embd=self.get_press_embd(state[:3])
+			press_embd=self.get_press_embd(origin)
 		else:
 			press_embd=[0]* self.press_embd_dim
 		
@@ -165,8 +165,7 @@ class Utils(object):
 		flow_type=self.flow_types_dic[self.get_flow_id(vehicle_id)]
 		one_hot_flow_type[flow_type]=1
 
-		# breakpoint()
-		return current_road+destination+press_embd+one_hot_flow_type
+		return reshaped_origin+reshaped_destination+press_embd+one_hot_flow_type
 
 	def get_state_diminsion(self):
 		if self.encode=="full_one_hot":
@@ -245,37 +244,24 @@ class Utils(object):
 
 
 	def get_press_embd(self,road):
-		press_embd=[]
+		press_embd=[0]*self.press_embd_dim
 
 		nroad=self.move(road,0)
 		nroad=[x-1 for x in nroad]
-
-		try:
-			press_embd.append(self.pressure_matrix[nroad[0]][nroad[1]])
-		except Exception as e:
-			print (e)
-			breakpoint()
-
+		if nroad[0]<self.dim and nroad[1]<self.dim:
+			press_embd[0]=self.pressure_matrix[nroad[0]][nroad[1]]
 
 		nroad=self.move(road,1)
 		nroad=[x-1 for x in nroad]
-		try:
-			press_embd.append(self.pressure_matrix[nroad[0]][nroad[1]])
-		except Exception as e:
-			print (e)
-			breakpoint()
-		
+		if nroad[0]<self.dim and nroad[1]<self.dim:
+			press_embd[0]=self.pressure_matrix[nroad[0]][nroad[1]]
 
 		nroad=self.move(road,2)
 		nroad=[x-1 for x in nroad]
-		try:
-			press_embd.append(self.pressure_matrix[nroad[0]][nroad[1]])
-		except Exception as e:
-			print (e)
-			breakpoint()
+		if nroad[0]<self.dim and nroad[1]<self.dim:
+			press_embd[0]=self.pressure_matrix[nroad[0]][nroad[1]]
 
 
-		# breakpoint()
 		return press_embd
 
 	def update_pressure_matrix(self):
@@ -339,3 +325,26 @@ class Utils(object):
 			pressure-=self.vc_count_dic[self.road2int(road)]
 
 		return pressure
+
+	def get_next_road(self,vc,action):
+		derivable=self.get_road(vc)+[action]
+		road=self.derivable2road(derivable)
+		return road
+
+
+	def get_road(self,vc):
+		derivable=list(map(int,self.environment.eng.get_vehicle_info(vc)["drivable"].split('_')[1:5]))
+		road=self.derivable2road(derivable)
+		return road
+	
+
+
+	def get_destination(self,vc):
+		path=self.environment.eng.get_vehicle_info(vc)["route"].split()
+		destination=path[len(path)-1]
+		destination=list(map(int,destination.split('_')[1:4]))
+		return destination
+
+	def state2torch(self,state):
+		state=torch.tensor(state, device=self.device, dtype=torch.float)
+		return state

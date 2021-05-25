@@ -59,6 +59,9 @@ class DQN(Base_Agent):
         for _ in range(self.hyperparameters["learning_iterations"]):
             states, actions, rewards, next_states, dones = self.sample_experiences(memory) #Sample experiences
             loss = self.compute_loss(agent_id, states, next_states, rewards, actions, dones)
+            self.summ_writer.add_scalar('Loss/'+str(agent_id),loss,self.env_episode_number)
+            
+            # writer.add_scalar('Loss/train', np.random.random(), n_iter)
             actions_list = [action_X.item() for action_X in actions ]
             self.logger.info("Action counts {}".format(Counter(actions_list)))
             self.take_optimisation_step(agent_id, loss, self.hyperparameters["gradient_clipping_norm"])

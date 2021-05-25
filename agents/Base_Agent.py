@@ -12,6 +12,7 @@ from nn_builder.pytorch.NN import NN
 # from torch.optim import optimizer as optim
 import torch.optim as optim
 from utilities.data_structures.Replay_Buffer import Replay_Buffer
+from torch.utils.tensorboard import SummaryWriter
 
 class Base_Agent(object):
 
@@ -46,6 +47,7 @@ class Base_Agent(object):
         gym.logger.set_level(40)  # stops it from printing an unnecessary warning
         self.log_game_info()
         self.lanes_dic=config.environment.lanes_dic
+        self.summ_writer = SummaryWriter()
 
     def get_environment_title(self):
         """Extracts name of environment from it"""
@@ -264,6 +266,8 @@ class Base_Agent(object):
 
                 for agent_id in self.agent_dic:
                     # BUG: when memory is full the rate of the exploration stalls decreasing
+                    self.summ_writer.add_scalar('Memory_Length/'+str(agent_id),self.agent_dic[agent_id]["memory"].__len__(),self.env_episode_number)
+
                     if self.agent_dic[agent_id]["total_exp_count"]<self.agent_dic[agent_id]["memory"].__len__():
                         self.agent_dic[agent_id]["total_exp_count"]=self.agent_dic[agent_id]["memory"].__len__()
                         self.agent_dic[agent_id]["episode_number"]+=1
@@ -277,6 +281,7 @@ class Base_Agent(object):
         time_taken = time.time() - start
         if show_whether_achieved_goal: self.show_whether_achieved_goal()
         if self.config.save_model: self.locally_save_policy()
+        self.summ_writer.close()
         return self.game_full_episode_scores, self.rolling_results, time_taken
 
     def run(self):

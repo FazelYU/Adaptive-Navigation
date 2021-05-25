@@ -20,7 +20,7 @@ import math
 class Adaptive_Routing_Environment(gym.Env):
 	environment_name = "Adaptive Routing"
 
-	def __init__(self,dim,encode,Num_Flows,skip_routing,random_trips,Max_Sim_Time,device,Log,rolling_window):
+	def __init__(self,dim,encode,embed_press,Num_Flows,skip_routing,random_trips,Max_Sim_Time,device,Log,rolling_window):
 
 
 		Adaptive_Routing_Environment.eng = cityflow.Engine("environments/3x3/config.json", thread_num=8)
@@ -47,7 +47,7 @@ class Adaptive_Routing_Environment(gym.Env):
 		}
 		self.dim=dim
 		
-		self.utils=Utils(dim=dim,environment=self,encode=encode,Num_Flows=Num_Flows,valid_dic=self.lanes_dic)
+		self.utils=Utils(dim=dim,environment=self,encode=encode,Num_Flows=Num_Flows,valid_dic=self.lanes_dic,device=device)
 
 
 		self.stochastic_actions_probability = 0
@@ -64,6 +64,7 @@ class Adaptive_Routing_Environment(gym.Env):
 		self.iteration=-1
 		self.manual_drive=False
 		self.random_trips=random_trips
+		self.embed_press=embed_press
 
 
 	def reset(self,episode):
@@ -99,6 +100,7 @@ class Adaptive_Routing_Environment(gym.Env):
 		self.dones=[]	
 		
 	def step(self,actions):
+
 		if self.Log:
 			print("Simulation Time: :{:.2f}".format(self.eng.get_current_time()))
 
@@ -107,7 +109,8 @@ class Adaptive_Routing_Environment(gym.Env):
 				actions[i]=self.manual_drive_route[self.iteration]
 		
 		self.set_route(self.trans_vehicles,actions)	
-		
+		# ---------------------------------------------
+
 		self.eng.next_step()
 		self.utils.update_pressure_matrix()
 
@@ -119,6 +122,7 @@ class Adaptive_Routing_Environment(gym.Env):
 		eng_vehicles_dic=self.get_engine_vehicles_dic()
 		self.update_env_vehicles(eng_vehicles_dic)
 		# ---------------------------------------------
+
 		for vc in eng_vehicles_dic:
 			if self.is_autonomus_off(vc) or not self.is_trans(vc):
 				continue
@@ -141,7 +145,7 @@ class Adaptive_Routing_Environment(gym.Env):
 	def set_route(self,VCs,ACTs):
 		for vc,act in zip(VCs,ACTs):
 			current_road=self.vehicles[vc]["memory0"]["road"]
-			next_road=self.get_next_road(vc,act)
+			next_road=self.utils.get_next_road(vc,act)
 			road="road_"+str(next_road[0])+"_"+str(next_road[1])+"_"+str(next_road[2])
 			routing_complete=self.eng.set_vehicle_route(vc,[road])
 			self.vehicles[vc]["memory0"]["action"]=act
@@ -162,6 +166,9 @@ class Adaptive_Routing_Environment(gym.Env):
 				reward)
 		
 		state=self.vehicles[vc]["memory2"]["state"]
+		action=self.vehicles[vc]["memory2"]["action"]
+		next_state=self.vehicles[vc]["memory1"]["state"]
+
 		road_id=self.utils.state2road(state)
 		try:
 			assert(road_id in self.lanes_dic)
@@ -169,8 +176,7 @@ class Adaptive_Routing_Environment(gym.Env):
 			breakpoint()
 		
 		self.states.append(state)
-		self.acts.append(self.vehicles[vc]["memory2"]["action"])
-		next_state=self.vehicles[vc]["memory1"]["state"]
+		self.acts.append(action)
 		self.next_states.append(next_state)
 		self.rewds.append(reward)
 		self.dones.append(done)
@@ -190,16 +196,18 @@ class Adaptive_Routing_Environment(gym.Env):
 		if self.is_new(vc):
 			if self.Log:
 				print("vehicle "+vc+" entered simulation")
-			
+			destination=self.utils.get_destination(vc)
+			source=self.utils.get_road(vc)
 			self.vehicles[vc]={
-			"destination": self.get_destination(vc),
+
+			"destination": destination,
 			"enter time": self.eng.get_current_time(),
 			"memory0":{
-				"road":self.get_road(vc),
+				"road":source,
 				"action":None,
 				"reward":None,
-				"state":None,
-				"valid": self.utils.check_valid(self.get_road(vc))
+				"state":self.utils.get_state(source,destination,self.embed_press,vehicle_id=vc),
+				"valid": self.utils.check_valid(source)
 			},
 			"memory1":None,
 			"memory2":None
@@ -212,8 +220,10 @@ class Adaptive_Routing_Environment(gym.Env):
 			try:
 				self.vehicles[vc]["memory2"]=None if self.vehicles[vc]["memory1"]==None else self.vehicles[vc]["memory1"].copy()
 				self.vehicles[vc]["memory1"]=self.vehicles[vc]["memory0"].copy()
-				self.vehicles[vc]["memory0"]["road"]=self.get_road(vc)
-				self.vehicles[vc]["memory0"]["state"]=self.utils.reshape(self.get_state(vc,"memory0"),vc)
+				source=self.utils.get_road(vc)
+				destination=self.vehicles[vc]["destination"]
+				self.vehicles[vc]["memory0"]["road"]=source
+				self.vehicles[vc]["memory0"]["state"]=self.utils.get_state(source,destination,self.embed_press,vehicle_id=vc)
 			except Exception as e:
 				breakpoint()
 
@@ -224,11 +234,7 @@ class Adaptive_Routing_Environment(gym.Env):
 			breakpoint()
 		self.trans_vehicles.append(vc)
 		state=self.vehicles[vc]["memory0"]["state"]
-		self.trans_vehicles_states.append(self.state2torch(state))
-
-	def state2torch(self,state,vc):
-		state=torch.tensor(state, device=self.device, dtype=torch.float)
-		return state
+		self.trans_vehicles_states.append(self.utils.state2torch(state))
 
 	def get_reward(self,vc):
 		road=self.vehicles[vc]["memory2"]["road"]
@@ -275,10 +281,6 @@ class Adaptive_Routing_Environment(gym.Env):
 		self.np_random, seed = seeding.np_random(seed)
 		return [seed]
 	
-	def is_rewardable(self,vc):
-		
-		return vc in self.vehicles and "action" in self.vehicles[vc]
-	
 	def is_terminal(self):
 		
 		return self.eng.get_vehicle_count==0 or self.eng.get_current_time()==self.Max_Sim_Time
@@ -292,36 +294,9 @@ class Adaptive_Routing_Environment(gym.Env):
 		return vc not in self.vehicles
 
 	def is_trans(self,vc):
-		return self.is_new(vc) or self.get_road(vc) != self.vehicles[vc]["memory0"]["road"]
+		return self.is_new(vc) or self.utils.get_road(vc) != self.vehicles[vc]["memory0"]["road"]
 
 	def get_engine_vehicles_dic(self):
 		
 		return self.eng.get_vehicle_speed()
 
-	def get_road(self,vc):
-		derivable=list(map(int,self.eng.get_vehicle_info(vc)["drivable"].split('_')[1:5]))
-		road=self.utils.derivable2road(derivable)
-		return road
-	
-	def get_next_road(self,vc,action):
-		derivable=self.get_road(vc)+[action]
-		road=self.utils.derivable2road(derivable)
-		return road
-
-	def get_destination(self,vc):
-		path=self.eng.get_vehicle_info(vc)["route"].split()
-		destination=path[len(path)-1]
-		destination=list(map(int,destination.split('_')[1:4]))
-		return destination
-
-	def get_state(self,vc,memory):
-		source=self.vehicles[vc][memory]["road"]
-		destination=self.vehicles[vc]["destination"]
-		state=source+destination
-		return state
-
-	def get_next_state(self,vc):
-		source=self.vehicles[vc]["next_road"]
-		destination=self.vehicles[vc]["destination"]
-		state=source+destination
-		return state
