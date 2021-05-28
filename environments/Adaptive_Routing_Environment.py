@@ -248,11 +248,11 @@ class Adaptive_Routing_Environment(gym.Env):
 				# TT=self.eng.get_current_time()-self.vehicles[vc]["enter time"]
 				# SPTT=self.utils.get_Shoretest_Path_Travel_Time(vc)
 				# reward=1+math.exp(SPTT/TT)
-				reward=10
+				reward=0
 				if self.Log:
 					print("goal reached: {:.2f}".format(reward))
 			else:
-				reward=-2
+				reward=-10000
 				if self.Log:
 					print("dead-end")
 			
