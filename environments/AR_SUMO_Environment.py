@@ -10,7 +10,7 @@ class AR_SUMO_Environment():
 	def __init__(self):
 		# replace the engine with sumo API
 		self.eng = cityflow.Engine("environments/3x3/config.json", thread_num=8)
-		self.road_dic=self.get_road_dic()
+		self.intersec_dic=self.get_intersec_dic()
 		self.vehicles={} # holds a copy of the info of the engine vehicles. I use it to find the vehicles that change road. it may be redundent with SUMO (SUMO might have an API that keeps track of the vehicles that change road)
 		self.trans_vehicles=[]
 
@@ -64,43 +64,43 @@ class AR_SUMO_Environment():
 		"""
 		input: 
 			VCs: an array of vehicle IDs
-			ACTs: an array of actions, each action represents one of the roads connected to the current road of the vc
+			ACTs: an array of actions, each action represents one of the roads connected to the next-intersection of the vc
 		Out: 
 			void
 
 		Function:
 			for vc,ac in zip(VCs,ACTs):
-				current-road = find the current road of vc
-				roads= find the connected roads to the current-road 
+				next_intersection_id = self.get_intersec_id(vc)
+				roads= self.intersec_dic[next_intersection_id]
 						(roads can be an array)
 
 				selected-road=roads[ac]
 				route vc to selected-road:
 					set up the simulator to route the vc to selected-road accordingly in the next step()
 				
-				Note: e.g. action 1 should always route vc to road road1
+				Note: e.g. at a intersection "ij" action 1 should always route vc to "road1" connected to "ij"
 
 		"""
 		pass
 
-	def get_road_dic(self):
+
+	def get_intersec_dic(self):
 		"""
 		input: void
-		return: a dictionary for all roads in the map: 
-								the keys : road ids
-								the values : number of roads that are connected to this road
+		return: a dictionary for all intersections in the map: 
+								the keys : intersection ids
+								the values : list of out going roads that are connected to the intersection
 		"""
 		pass
 	
-	def VID2RID(self,vc_ID):
+	def get_intersec_id(self,vc_ID):
 		"""
-		retutn the road Id of the road that vehicle with vc_ID is moving in
+		return the next intersection of the vehicle with id= "vc_ID"
 		"""
-		pass
 	
 	def get_random_action(self,vc_ID):
 		"""
-		return a random number between 1 and self.road_dic[VID2RID(vc_ID)]
+		return a random number between 1 and len(self.intersec_dic[self.get_intersec_id(vc_ID)])
 		"""
 		pass
 
@@ -113,7 +113,7 @@ class AR_SUMO_Environment():
 
 	def get_engine_vehicles_dic(self):
 		"""
-		query to the SUMO API and return a list or a dictionary of the vehicles that are currently in the simulation
+		query to the SUMO API and return a dictionary of the vehicles that are currently in the simulation
 
 		"""
 		pass
