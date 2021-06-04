@@ -1,4 +1,4 @@
-import numpy
+import numpy as np
 import torch
 import json
 import random
@@ -56,8 +56,28 @@ class Utils(object):
 		self.slow_vc_speed=7
 		self.fast_vc_speed=2*self.slow_vc_speed
 		self.device=device
-
-
+		self.adjacency_list_dict={
+			11:[11,21,12],
+			21:[21,11,31,22],
+			31:[31,21,32],
+			12:[12,11,22,13],
+			22:[22,21,23,12,32],
+			32:[32,31,22,33],
+			13:[13,12,23],
+			23:[23,13,22,33],
+			33:[33,23,32]
+		}
+		self.node_features_dic={
+			11:[],
+			21:[],
+			31:[],
+			12:[],
+			22:[],
+			32:[],
+			13:[],
+			23:[],
+			33:[]
+		}
 
 	def change_row(self,intersec,val):
 		intersec[1]+=val
@@ -242,7 +262,6 @@ class Utils(object):
 		with open("environments/3x3/flow.json","w") as write_file:
 			json.dump(data,write_file,sort_keys=True, indent=4, separators=(',', ': '))
 
-
 	def get_press_embd(self,road):
 		press_embd=[0]*self.press_embd_dim
 
@@ -294,7 +313,6 @@ class Utils(object):
 	def refresh_vc_count_dic(self):
 		for road in self.vc_count_dic:self.vc_count_dic[road]=0
 
-
 	def lane2road(self,lane):
 		road=list(map(int,lane.split('_')[1:4]))
 		return road		
@@ -331,14 +349,11 @@ class Utils(object):
 		road=self.derivable2road(derivable)
 		return road
 
-
 	def get_road(self,vc):
 		derivable=list(map(int,self.environment.eng.get_vehicle_info(vc)["drivable"].split('_')[1:5]))
 		road=self.derivable2road(derivable)
 		return road
 	
-
-
 	def get_destination(self,vc):
 		path=self.environment.eng.get_vehicle_info(vc)["route"].split()
 		destination=path[len(path)-1]
@@ -348,3 +363,35 @@ class Utils(object):
 	def state2torch(self,state):
 		state=torch.tensor(state, device=self.device, dtype=torch.float)
 		return state
+
+	def get_edge_index(self,add_self_edges=True):
+		num_of_nodes=len(self.adjacency_list_dict)
+		source_nodes_ids, target_nodes_ids = [], []
+		seen_edges = set()
+
+		for src_node, neighboring_nodes in self.adjacency_list_dict.items():
+			for trg_node in neighboring_nodes:
+		        # if this edge hasn't been seen so far we add it to the edge index (coalescing - removing duplicates)
+				if (src_node, trg_node) not in seen_edges:  # it'd be easy to explicitly remove self-edges (Cora has none..)
+					source_nodes_ids.append(src_node)
+					target_nodes_ids.append(trg_node)
+					seen_edges.add((src_node, trg_node))
+
+		# shape = (2, E), where E is the number of edges in the graph
+		edge_index = np.row_stack((source_nodes_ids, target_nodes_ids))
+
+		return torch.tensor(edge_index,dtype=torch.long,device=device)
+
+	def get_node_features(self):
+		self.update_node_features()
+		return torch.tensor([*self.node_features_dic.values()],dtype=torch.long,device=device)
+
+	def update_node_features(self):
+		for row in range(0,self.dim):
+			for column in range(0,self.dim):
+				node_id=(column+1)*10+(row+1)
+				try:
+					self.node_features_dic[node_id].append(self.pressure_matrix[column][row])
+				except Exception as e:
+					print(e)
+					breakpoint()

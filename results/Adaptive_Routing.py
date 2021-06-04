@@ -25,6 +25,9 @@ import torch.optim as optim
 import torch.nn.functional as F
 import torchvision.transforms as T
 
+from pytorchGAT.models.definitions.GAT import GAT
+
+
 # import environments.Adaptive_Routing_Environment_D
 # from environments.Utils import Utils
 
@@ -33,7 +36,6 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu") #device is
 config = Config()
 config.seed = 1
 
-config.environment = Adaptive_Routing_Environment(dim=3,encode="one_hot", embed_press=True ,Num_Flows=5,skip_routing=[],random_trips=True,Max_Sim_Time=600,device=device,Log=False,rolling_window=10)
 # breakpoint()
 # num_possible_states =config.environment.utils.get_state_diminsion()
 # embedding_dimensions = [[num_possible_states, 20]]
@@ -53,6 +55,25 @@ config.randomise_random_seed = True
 config.save_model = False
 
 config.hyperparameters = {
+    "GAT":{
+    'num_of_epochs': 10000, 
+    'patience_period': 1000,
+    'lr': 0.005, 
+    'weight_decay': 0.0005, 
+    'should_test': False, 
+    'dataset_name': 'CORA', 
+    'should_visualize': False, 
+    'enable_tensorboard': False, 
+    'console_log_freq': 100, 
+    'checkpoint_freq': 1000, 
+    'num_of_layers': 1, 
+    'num_heads_per_layer': [2], 
+    'num_features_per_layer': [1, 1], 
+    'add_skip_connection': False, 
+    'bias': True, 
+    'dropout': 0.6,
+    },
+
     "DQN_Agents": {
         "linear_hidden_units": [30, 10],
         "learning_rate": 0.01,
@@ -171,6 +192,22 @@ config.hyperparameters = {
 
     }
 }
+
+
+gat = GAT(
+        num_of_layers=config.hyperparameters["GAT"]['num_of_layers'],
+        num_heads_per_layer=config.hyperparameters["GAT"]['num_heads_per_layer'],
+        num_features_per_layer=config.hyperparameters["GAT"]['num_features_per_layer'],
+        add_skip_connection=config.hyperparameters["GAT"]['add_skip_connection'],
+        bias=config.hyperparameters["GAT"]['bias'],
+        dropout=config.hyperparameters["GAT"]['dropout'],
+        log_attention_weights=False  # no need to store attentions, used only in playground.py for visualizations
+    ).to(device)
+
+gat.train()
+
+config.environment = Adaptive_Routing_Environment(GAT=gat,dim=3,encode="one_hot", embed_press=True ,Num_Flows=5,skip_routing=[],random_trips=True,Max_Sim_Time=600,device=device,Log=False,rolling_window=10)
+
 
 if __name__== '__main__':
     AGENTS = [DQN] #DIAYN] # A3C] #SNN_HRL] #, DDQN]

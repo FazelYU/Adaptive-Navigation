@@ -10,6 +10,7 @@ from gym.utils import seeding
 from matplotlib import pyplot
 from random import randint
 
+
 import cityflow
 from environments.Utils import Utils
 import torch
@@ -17,12 +18,14 @@ import itertools
 import numpy
 import math
 
+
+
 class Adaptive_Routing_Environment(gym.Env):
 	environment_name = "Adaptive Routing"
 
-	def __init__(self,dim,encode,embed_press,Num_Flows,skip_routing,random_trips,Max_Sim_Time,device,Log,rolling_window):
+	def __init__(self,GAT,dim,encode,embed_press,Num_Flows,skip_routing,random_trips,Max_Sim_Time,device,Log,rolling_window):
 
-
+		self.gat=GAT
 		Adaptive_Routing_Environment.eng = cityflow.Engine("environments/3x3/config.json", thread_num=8)
 		self.vehicles={}
 		self.trans_vehicles=[]
@@ -112,11 +115,15 @@ class Adaptive_Routing_Environment(gym.Env):
 		# ---------------------------------------------
 
 		self.eng.next_step()
-		self.utils.update_pressure_matrix()
-
 		if self.is_terminal():
 			return self.states,self.acts,self.next_states,self.rewds,self.dones,True
-		
+
+		self.utils.update_pressure_matrix()
+		edge_index=self.utils.get_edge_index()
+		node_features=self.utils.get_node_features()
+		evolved_node_features = self.gat((node_features, edge_index))[0]
+		breakpoint()
+
 		self.refresh_trans()	
 		self.refresh_exp()
 		eng_vehicles_dic=self.get_engine_vehicles_dic()
