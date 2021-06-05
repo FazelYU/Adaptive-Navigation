@@ -380,11 +380,11 @@ class Utils(object):
 		# shape = (2, E), where E is the number of edges in the graph
 		edge_index = np.row_stack((source_nodes_ids, target_nodes_ids))
 
-		return torch.tensor(edge_index,dtype=torch.long,device=device)
+		return torch.tensor(edge_index,dtype=torch.long,device=self.device)
 
 	def get_node_features(self):
 		self.update_node_features()
-		return torch.tensor([*self.node_features_dic.values()],dtype=torch.long,device=device)
+		return torch.tensor([*self.node_features_dic.values()],dtype=torch.float,device=self.device)
 
 	def update_node_features(self):
 		for row in range(0,self.dim):
