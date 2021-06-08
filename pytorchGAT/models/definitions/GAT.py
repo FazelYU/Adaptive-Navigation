@@ -34,7 +34,6 @@ class GAT(torch.nn.Module):
     # https://discuss.pytorch.org/t/forward-takes-2-positional-arguments-but-3-were-given-for-nn-sqeuential-with-linear-layers/65698
 
     def forward(self, data):
-        print("forward has been called")
         return self.gat_net(data)
 
 
@@ -167,14 +166,14 @@ class GATLayer(torch.nn.Module):
         # shape = (N, FIN) where N - number of nodes in the graph, FIN - number of input features per node
         # We apply the dropout to all of the input node features (as mentioned in the paper)
         # Note: for Cora features are already super sparse so it's questionable how much this actually helps
-        in_nodes_features = self.dropout(in_nodes_features)
-        breakpoint()
+        
+        # in_nodes_features = self.dropout(in_nodes_features)
 
         # shape = (N, FIN) * (FIN, NH*FOUT) -> (N, NH, FOUT) where NH - number of heads, FOUT - num of output features
         # We project the input node features into NH independent output features (one for each attention head)
         nodes_features_proj = self.linear_proj(in_nodes_features).view(-1, self.num_of_heads, self.num_out_features)
 
-        nodes_features_proj = self.dropout(nodes_features_proj)  # in the official GAT imp they did dropout here as well
+        # nodes_features_proj = self.dropout(nodes_features_proj)  # in the official GAT imp they did dropout here as well
         #
         # Step 2: Edge attention calculation
         #
@@ -185,7 +184,6 @@ class GATLayer(torch.nn.Module):
         scores_source = (nodes_features_proj * self.scoring_fn_source).sum(dim=-1)
         scores_target = (nodes_features_proj * self.scoring_fn_target).sum(dim=-1)
         # we reached thi point
-        breakpoint()
 
         # We simply copy (lift) the scores for source/target nodes based on the edge index. Instead of preparing all
         # the possible combinations of scores we just prepare those that will actually be used and those are defined
@@ -197,9 +195,8 @@ class GATLayer(torch.nn.Module):
         # shape = (E, NH, 1)
         attentions_per_edge = self.neighborhood_aware_softmax(scores_per_edge, edge_index[self.trg_nodes_dim], num_of_nodes)
         # Add stochasticity to neighborhood aggregation
-        attentions_per_edge = self.dropout(attentions_per_edge)
-        breakpoint()
-        #
+        # attentions_per_edge = self.dropout(attentions_per_edge)
+        
         # Step 3: Neighborhood aggregation
         #
 

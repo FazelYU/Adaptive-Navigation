@@ -417,8 +417,9 @@ class Base_Agent(object):
                     random_seed=seed).to(self.device)
            
             
-            agent_dic[lane]["optimizer"]=optim.Adam(agent_dic[lane]["NN"].parameters(),
-                                              lr=self.hyperparameters["learning_rate"], eps=1e-4)
+            agent_dic[lane]["optimizer"]=optim.Adam(
+                                            list(agent_dic[lane]["NN"].parameters())+list(self.config.GAT_parameters),
+                                            lr=self.hyperparameters["learning_rate"], eps=1e-4)
 
             agent_dic[lane]["memory"]= Replay_Buffer(self.hyperparameters["buffer_size"], self.hyperparameters["batch_size"], self.config.seed, self.device)
 

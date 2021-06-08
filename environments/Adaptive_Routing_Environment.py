@@ -23,7 +23,7 @@ import math
 class Adaptive_Routing_Environment(gym.Env):
 	environment_name = "Adaptive Routing"
 
-	def __init__(self,GAT,dim,encode,embed_press,Num_Flows,skip_routing,random_trips,Max_Sim_Time,device,Log,rolling_window):
+	def __init__(self,GAT,dim,encode,embed_network,Num_Flows,skip_routing,random_trips,Max_Sim_Time,device,Log,rolling_window):
 
 		self.gat=GAT
 		Adaptive_Routing_Environment.eng = cityflow.Engine("environments/3x3/config.json", thread_num=8)
@@ -50,7 +50,7 @@ class Adaptive_Routing_Environment(gym.Env):
 		}
 		self.dim=dim
 		
-		self.utils=Utils(dim=dim,environment=self,encode=encode,Num_Flows=Num_Flows,valid_dic=self.lanes_dic,device=device)
+		self.utils=Utils(dim=dim,environment=self,encode=encode,Num_Flows=Num_Flows,valid_dic=self.lanes_dic,device=device,GAT=GAT,embed_network=embed_network)
 
 
 		self.stochastic_actions_probability = 0
@@ -67,7 +67,7 @@ class Adaptive_Routing_Environment(gym.Env):
 		self.iteration=-1
 		self.manual_drive=False
 		self.random_trips=random_trips
-		self.embed_press=embed_press
+		self.embed_network=embed_network
 
 
 	def reset(self,episode):
@@ -118,11 +118,13 @@ class Adaptive_Routing_Environment(gym.Env):
 		if self.is_terminal():
 			return self.states,self.acts,self.next_states,self.rewds,self.dones,True
 
-		self.utils.update_pressure_matrix()
-		edge_index=self.utils.get_edge_index()
-		node_features=self.utils.get_node_features()
-		evolved_node_features = self.gat((node_features, edge_index))[0]
-		breakpoint()
+		if self.embed_network:
+			self.utils.update_and_evolve_node_features()
+		
+
+		# print(self.utils.get_node_features())
+		# print(self.utils.evolved_node_features)
+		# breakpoint()
 
 		self.refresh_trans()	
 		self.refresh_exp()
@@ -213,7 +215,7 @@ class Adaptive_Routing_Environment(gym.Env):
 				"road":source,
 				"action":None,
 				"reward":None,
-				"state":self.utils.get_state(source,destination,self.embed_press,vehicle_id=vc),
+				"state":self.utils.get_state(source,destination,vehicle_id=vc),
 				"valid": self.utils.check_valid(source)
 			},
 			"memory1":None,
@@ -230,7 +232,7 @@ class Adaptive_Routing_Environment(gym.Env):
 				source=self.utils.get_road(vc)
 				destination=self.vehicles[vc]["destination"]
 				self.vehicles[vc]["memory0"]["road"]=source
-				self.vehicles[vc]["memory0"]["state"]=self.utils.get_state(source,destination,self.embed_press,vehicle_id=vc)
+				self.vehicles[vc]["memory0"]["state"]=self.utils.get_state(source,destination,vehicle_id=vc)
 			except Exception as e:
 				breakpoint()
 
@@ -241,7 +243,7 @@ class Adaptive_Routing_Environment(gym.Env):
 			breakpoint()
 		self.trans_vehicles.append(vc)
 		state=self.vehicles[vc]["memory0"]["state"]
-		self.trans_vehicles_states.append(self.utils.state2torch(state))
+		self.trans_vehicles_states.append(state)
 
 	def get_reward(self,vc):
 		road=self.vehicles[vc]["memory2"]["road"]
@@ -259,7 +261,7 @@ class Adaptive_Routing_Environment(gym.Env):
 				if self.Log:
 					print("goal reached: {:.2f}".format(reward))
 			else:
-				reward=-10000
+				reward=-10
 				if self.Log:
 					print("dead-end")
 			

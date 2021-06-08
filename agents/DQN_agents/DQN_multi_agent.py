@@ -30,7 +30,8 @@ class DQN(Base_Agent):
         actions=[]
         for state in states:
             if isinstance(state, np.int64) or isinstance(state, int): state = np.array([state])
-            state = state.float().unsqueeze(0).to(self.device)
+            # breakpoint()
+            # state = state.float().to(self.device)
             agent_id=self.get_agent_id(state)
             try:
                 assert(agent_id in self.lanes_dic)

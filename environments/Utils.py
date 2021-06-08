@@ -1,11 +1,12 @@
-import numpy as np
+import numpy
+
 import torch
 import json
 import random
 
 class Utils(object):
 	"""docstring for Utils"""
-	def __init__(self,environment,encode,dim,Num_Flows,valid_dic,device):
+	def __init__(self,environment,encode,dim,Num_Flows,valid_dic,device,GAT,embed_network):
 		super(Utils, self).__init__()
 		self.valid_dic=valid_dic
 		self.dim=dim
@@ -49,7 +50,7 @@ class Utils(object):
 		]
 		self.pressure_matrix=[[0]*dim for i in range(dim)]
 		self.dim=dim
-		self.press_embd_dim=3
+		self.network_embd_dim=9
 		self.environment=environment
 		self.vc_count_dic=self.creat_vc_count_dic()
 		self.Num_Flow_Types=3
@@ -57,27 +58,30 @@ class Utils(object):
 		self.fast_vc_speed=2*self.slow_vc_speed
 		self.device=device
 		self.adjacency_list_dict={
-			11:[11,21,12],
-			21:[21,11,31,22],
-			31:[31,21,32],
-			12:[12,11,22,13],
-			22:[22,21,23,12,32],
-			32:[32,31,22,33],
-			13:[13,12,23],
-			23:[23,13,22,33],
-			33:[33,23,32]
+			0:[0,1,3],
+			1:[1,0,2,4],
+			2:[2,1,5],
+			3:[3,0,4,6],
+			4:[4,1,7,3,5],
+			5:[5,2,4,8],
+			6:[6,3,7],
+			7:[7,6,4,8],
+			8:[8,7,5]
 		}
 		self.node_features_dic={
-			11:[],
-			21:[],
-			31:[],
-			12:[],
-			22:[],
-			32:[],
-			13:[],
-			23:[],
-			33:[]
+			0:[0],
+			1:[0],
+			2:[0],
+			3:[0],
+			4:[0],
+			5:[0],
+			6:[0],
+			7:[0],
+			8:[0]
 		}
+
+		self.gat=GAT
+		self.embed_network=embed_network
 
 	def change_row(self,intersec,val):
 		intersec[1]+=val
@@ -172,20 +176,25 @@ class Utils(object):
 			intersec=self.change_position(intersec,dir)
 			return intersec+[dir]
 			
-	def get_state(self,origin,destination,embed_press,vehicle_id):
+	def get_state(self,origin,destination,vehicle_id):
 		reshaped_origin=self.res_road(origin)
 		reshaped_destination=self.res_road(destination)
-		if embed_press:
-			press_embd=self.get_press_embd(origin)
-		else:
-			press_embd=[0]* self.press_embd_dim
-		
 
 		one_hot_flow_type=[0]*self.Num_Flow_Types
 		flow_type=self.flow_types_dic[self.get_flow_id(vehicle_id)]
 		one_hot_flow_type[flow_type]=1
+		state=self.state2torch(reshaped_origin+reshaped_destination+one_hot_flow_type)
 
-		return reshaped_origin+reshaped_destination+press_embd+one_hot_flow_type
+		if self.embed_network:
+			network_embd=self.evolved_node_features.view(1,-1)
+			return torch.cat((state,network_embd),1)
+		else:
+			return state
+		
+
+		
+
+		
 
 	def get_state_diminsion(self):
 		if self.encode=="full_one_hot":
@@ -196,8 +205,12 @@ class Utils(object):
 		
 		else:
 			ret=self.dim
-		
-		return ret+self.press_embd_dim+self.Num_Flow_Types
+		if self.embed_network:
+			ret=ret+self.network_embd_dim
+
+		ret=ret+self.Num_Flow_Types
+
+		return ret
 
 	def get_flow_id(self,flow):
 		vid=list(map(int,flow.split('_')[1:3]))
@@ -223,7 +236,8 @@ class Utils(object):
 			column=state[0]*0+state[1]*1+state[2]*2+state[3]*3+state[4]*4
 			row=state[5]*0+state[6]*1+state[7]*2+state[8]*3+state[9]*4
 			lane=state[10]*0+state[11]*1+state[12]*2+state[13]*3
-		except:
+		except Exception as e:
+			print(e)
 			breakpoint()
 
 		# if torch.is_tensor(state):
@@ -362,7 +376,7 @@ class Utils(object):
 
 	def state2torch(self,state):
 		state=torch.tensor(state, device=self.device, dtype=torch.float)
-		return state
+		return state.unsqueeze(0)
 
 	def get_edge_index(self,add_self_edges=True):
 		num_of_nodes=len(self.adjacency_list_dict)
@@ -378,20 +392,26 @@ class Utils(object):
 					seen_edges.add((src_node, trg_node))
 
 		# shape = (2, E), where E is the number of edges in the graph
-		edge_index = np.row_stack((source_nodes_ids, target_nodes_ids))
+		edge_index = numpy.row_stack((source_nodes_ids, target_nodes_ids))
 
 		return torch.tensor(edge_index,dtype=torch.long,device=self.device)
 
-	def get_node_features(self):
+	def update_and_evolve_node_features(self):
 		self.update_node_features()
-		return torch.tensor([*self.node_features_dic.values()],dtype=torch.float,device=self.device)
+		edge_index=self.get_edge_index()
+		node_features=self.get_node_features()
+		self.evolved_node_features = self.gat((node_features, edge_index))[0]
 
 	def update_node_features(self):
+		self.update_pressure_matrix()
 		for row in range(0,self.dim):
 			for column in range(0,self.dim):
-				node_id=(column+1)*10+(row+1)
+				node_id=(column+row*3)
 				try:
-					self.node_features_dic[node_id].append(self.pressure_matrix[column][row])
+					self.node_features_dic[node_id][0]=(self.pressure_matrix[column][row])
 				except Exception as e:
 					print(e)
 					breakpoint()
+	
+	def get_node_features(self):
+		return torch.tensor([*self.node_features_dic.values()],dtype=torch.float,device=self.device)

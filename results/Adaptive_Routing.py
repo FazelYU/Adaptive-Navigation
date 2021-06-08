@@ -31,7 +31,8 @@ from pytorchGAT.models.definitions.GAT import GAT
 # import environments.Adaptive_Routing_Environment_D
 # from environments.Utils import Utils
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu") #device is cpu
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu") #device is cpu
+device = torch.device("cpu" if torch.cuda.is_available() else "cpu") #device is cpu
 # device="cpu"
 config = Config()
 config.seed = 1
@@ -41,7 +42,7 @@ config.seed = 1
 # embedding_dimensions = [[num_possible_states, 20]]
 # print("Num possible states ", num_possible_states)
 
-config.num_episodes_to_run = 100
+config.num_episodes_to_run = 1
 config.file_to_save_data_results = "Data_and_Graphs/Adaptive_Routing.pkl"
 config.file_to_save_results_graph = "Data_and_Graphs/Adaptive_Routing.png"
 config.show_solution_score = False
@@ -49,7 +50,7 @@ config.visualise_individual_results = False
 config.visualise_overall_agent_results = True
 config.standard_deviation_results = 1.0
 config.runs_per_agent = 1
-config.use_GPU = True
+config.use_GPU = False
 config.overwrite_existing_results_file = True
 config.randomise_random_seed = True
 config.save_model = False
@@ -205,8 +206,9 @@ gat = GAT(
     ).to(device)
 
 gat.train()
+config.GAT_parameters=gat.parameters()
 
-config.environment = Adaptive_Routing_Environment(GAT=gat,dim=3,encode="one_hot", embed_press=True ,Num_Flows=5,skip_routing=[],random_trips=True,Max_Sim_Time=600,device=device,Log=False,rolling_window=10)
+config.environment = Adaptive_Routing_Environment(GAT=gat,dim=3,encode="one_hot", embed_network=True ,Num_Flows=1,skip_routing=[],random_trips=True,Max_Sim_Time=600,device=device,Log=True,rolling_window=10)
 
 
 if __name__== '__main__':
