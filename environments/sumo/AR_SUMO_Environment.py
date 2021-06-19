@@ -14,13 +14,15 @@ class AR_SUMO_Environment():
 		#traci sumo init
 		sys.path.append(os.path.join(Utils['SUMO_PATH'], os.sep, 'tools'))
 		sumoBinary = Utils["SUMO_GUI_PATH"]
-		self.sumoCmd = [sumoBinary, "-c", Utils["SUMO_CONFIG"]]
-		
+		self.sumoCmd = [sumoBinary, '-S', '-d', Utils['Simulation_Delay'], "-c", Utils["SUMO_CONFIG"]]
+		self.reloadCmd = []
 		# for id, edge in self.network.edges.items():
 		# 	print(id, edge.type)
 		# for edge in self.network.graph.edges():
 		# 	print(self.network.graph.get_edge_data(*edge)['edge'].id)
 
+		self.nodes = list(self.network.graph.nodes())
+		self.nodesMap = {self.nodes[idx]: idx for idx in range(len(self.nodes))}
 		self.vehicles={} # holds a copy of the info of the engine vehicles. I use it to find the vehicles that change road. it may be redundent with SUMO (SUMO might have an API that keeps track of the vehicles that change road)
 		self.trans_vehicles=[]
 
@@ -31,6 +33,7 @@ class AR_SUMO_Environment():
 		while not self.step():
 			step += 1
 		traci.close()
+		
 
 	# def reset(self,episode):
 	# 	self.eng.reset()
@@ -72,6 +75,11 @@ class AR_SUMO_Environment():
 	
 		return False
 
+	def __log(self, log_str, type):
+		if Utils['LOG']:
+			if type == 'info':
+				print('-info- ' + log_str)
+
 	def set_route(self,VCs,ACTs):
 		"""
 		input: 
@@ -97,10 +105,13 @@ class AR_SUMO_Environment():
 			if ac is None:
 				continue
 			next_intersection_id = self.get_intersec_id(vc)
-			roads = self.get_intersec_dic()[next_intersection_id]
-			selected_road = roads[ac - 1]
+			intersections = self.get_intersec_dic()[next_intersection_id]
+			selected_intersection = intersections[ac - 1]
+			intersec_id = [key for key, value in self.nodesMap.items() if value == next_intersection_id][0]
+			selected_intersec = [key for key, value in self.nodesMap.items() if value == selected_intersection][0]
+			selected_road = [self.network.graph.get_edge_data(*edge)['edge'].id for edge in self.network.graph.out_edges(intersec_id) if self.network.graph.get_edge_data(*edge)['edge'].to_id == selected_intersec][0]
 			current_road = self.vehicles[vc][0]
-			# print(current_road, selected_road)
+			self.__log('vehicle {0} route changed to (from:{1}, to:{2})'.format(vc, current_road, selected_road), 'info')
 			traci.vehicle.setRoute(vc, [current_road, selected_road])
 		pass
 
@@ -112,7 +123,9 @@ class AR_SUMO_Environment():
 								the keys : intersection ids
 								the values : list of out going roads that are connected to the intersection
 		"""
-		return {node: [self.network.graph.get_edge_data(*edge)['edge'].id for edge in self.network.graph.out_edges(node)] for node in self.network.graph.nodes()}
+		
+
+		return {self.nodesMap[node]: list(set([self.nodesMap[self.network.graph.get_edge_data(*edge)['edge'].to_id] for edge in self.network.graph.out_edges(node)])) for node in self.nodes}
 	
 	def get_intersec_id(self,vc_ID):
 		"""
@@ -120,7 +133,7 @@ class AR_SUMO_Environment():
 		"""
 		roadID = self.vehicles[vc_ID][0]
 		edge = list(filter(lambda e: self.network.graph.get_edge_data(*e)['edge'].id == roadID, self.network.graph.edges()))[0]
-		return edge[1]
+		return self.nodesMap[edge[1]]
 
 	
 	def get_random_action(self, vc_ID):
@@ -132,8 +145,6 @@ class AR_SUMO_Environment():
 			return None
 		choices = list(range(1, len(self.get_intersec_dic()[self.get_intersec_id(vc_ID)]) + 1))
 		choice = random.choice(choices)
-		while self.get_intersec_dic()[self.get_intersec_id(vc_ID)][choice - 1] not in [pair[1] for pair in self.network.connectionGraph.out_edges(roadID)]:
-			choice = random.choice(choices)
 		return choice
 
 	def is_terminal(self):
