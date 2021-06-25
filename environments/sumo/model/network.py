@@ -12,9 +12,9 @@ import xml.etree.ElementTree as ET
 import networkx as nx
 import re, os
 
-from model.base_components import *
-from model.system_components import *
-
+from environments.sumo.model.base_components import *
+from environments.sumo.model.system_components import *
+import pdb
 
 class RoadNetworkModel():
     """Read an xml file and construct a representation of the road network"""

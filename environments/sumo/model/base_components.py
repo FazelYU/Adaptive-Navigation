@@ -59,7 +59,6 @@ class Edge():
     def __repr__(self):
         return ('{}({})'.format(self.__class__.__name__, self.id))
 
-
 class Lane():
     """Representation of a single lane of an edge in a road network."""
     def __init__(self, edge_id, lane):
@@ -71,7 +70,6 @@ class Lane():
         self.length = float(lane['length'])
         self.shape = Shape(lane['shape'])
         # self.disallow = lane['disallow'].split('_')
-
 
 class Shape():
     """Representation of the linear shape of a lane"""

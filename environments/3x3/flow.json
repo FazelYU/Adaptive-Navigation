@@ -3,8 +3,8 @@
         "endTime": 1,
         "interval": 2,
         "route": [
-            "road_0_1_0",
-            "road_3_3_0"
+            "road_0_3_0",
+            "road_3_2_0"
         ],
         "startTime": 0,
         "vehicle": {

@@ -135,7 +135,7 @@ class Adaptive_Routing_Environment(gym.Env):
 		for vc in eng_vehicles_dic:
 			if self.is_autonomus_off(vc) or not self.is_trans(vc):
 				continue
-
+			breakpoint()
 			self.transit_env_vc(vc)
 
 			if self.vehicles[vc]["memory0"]["valid"]:
