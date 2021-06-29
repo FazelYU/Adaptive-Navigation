@@ -16,6 +16,8 @@ from environments.sumo.model.base_components import *
 from environments.sumo.model.system_components import *
 import pdb
 
+import traci
+
 class RoadNetworkModel():
     """Read an xml file and construct a representation of the road network"""
     def __init__(self, fileroot, name, shortest_paths = False):
@@ -58,7 +60,6 @@ class RoadNetworkModel():
             self.connections.append(connection)
         # iterate over network edges
         for edge_xml in root.findall('edge'):
-
             # create edge and edge system objects store, them keyed by id
             lanes = [lane_xml.attrib for lane_xml in edge_xml.findall('lane')]
             edge = Edge(edge_xml.attrib, lanes)
@@ -84,8 +85,8 @@ class RoadNetworkModel():
 
     def construct_graph(self):
         """Create a directed graph representation fo the system."""
-
-        self.graph = nx.DiGraph([(edge.from_id, edge.to_id, {'edge': edge})
+        self.graph = nx.DiGraph([(edge.from_id, edge.to_id, {'edge': edge, 'weight':traci.edge.getTraveltime(edge.id)})
+        # self.graph = nx.DiGraph([(edge.from_id, edge.to_id, {'edge': edge})
             for edge in self.edges.values()])
         
         self.connectionGraph = nx.DiGraph([(connection.fromEdge, connection.toEdge, {'connection' : connection}) for connection in self.connections])

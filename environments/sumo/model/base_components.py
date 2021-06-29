@@ -24,7 +24,6 @@ class Edge():
     def __init__(self, edge, lanes):
 
         self.id = edge['id']
-
         # if normal function, store normal properties
         if 'function' not in edge or edge['function'] == "normal":
 

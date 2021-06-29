@@ -5,6 +5,7 @@ import json
 import random
 import traci
 from inspect import currentframe, getframeinfo
+import networkx as nx
 
 
 Constants = {
@@ -12,21 +13,20 @@ Constants = {
     "SUMO_GUI_PATH" : "/usr/share/sumo/bin/sumo-gui", #path to sumo-gui bin in your system
     "SUMO_CONFIG" : "./environments/sumo/networks/3x3/network.sumocfg", #path to your sumo config file
     "ROOT" : "./",
-    "Network_XML" : "./environments/sumo/networks/3x3/network.net.xml",
+    "Network_XML" : "./environments/sumo/networks/3x3/test1.net.xml",
     'LOG' : True,
     'WARNINGS': False,
     'WHERE':False,
-    'Simulation_Delay' : '300'
+    'Simulation_Delay' : '100'
 }
 
 
 
 class Utils(object):
     """docstring for Utils"""
-    def __init__(self,environment,network,Num_Flows,valid_dic,device,GAT,embed_network):
+    def __init__(self,environment,network,Num_Flows,device,GAT,embed_network):
         super(Utils, self).__init__()
         self.network=network
-        self.valid_dic=valid_dic
         self.Num_Flows=Num_Flows
 
         # self.pressure_matrix=[[0]*dim for i in range(dim)]
@@ -49,11 +49,15 @@ class Utils(object):
         self.node_dic=self.create_node_dic()
         self.sink_list=[self.get_edge_ID(edge) \
                         for edge in self.network.graph.out_edges \
-                        if self.network.graph.in_degree(edge[1])==1]
+                        if self.network.graph.out_degree(edge[1])==0 and \
+                        self.network.graph.in_degree(edge[1])==1]
         self.source_list=[self.get_edge_ID(edge) \
                         for edge in self.network.graph.out_edges \
-                        if self.network.graph.out_degree(edge[0])==1]
+                        if self.network.graph.out_degree(edge[0])==1 and \
+                        self.network.graph.in_degree(edge[0])==0
+                        ] 
 
+        self.all_pairs_shortest_path= dict(nx.all_pairs_dijkstra_path_length(self.network.graph))
 
     
     def get_state(self,source,destination):
@@ -94,8 +98,17 @@ class Utils(object):
             source=random.choice(self.source_list)
             sink=random.choice(self.sink_list)
             traci.route.add("trip_{}".format(i),[source,sink])
+            # stage=traci.simulation.findRoute(source,sink)
+            # breakpoint()
+            # edgeTT=sum([traci.edge.getTraveltime(edgeID) for edgeID in traci.route.getEdges("trip_{}".format(i)) ])
+            # breakpoint()
             for j in range(0,num_vehiles_per_trip[i]):
                 traci.vehicle.add("vehicle_{}_{}".format(i,j),"trip_{}".format(i))
+    def generate_random_trip(self,id):
+        source=random.choice(self.source_list)
+        sink=random.choice(self.sink_list)
+        traci.route.add("trip_{}".format(id),[source,sink])
+        traci.vehicle.add("vehicle_{}".format(id),"trip_{}".format(id))
 
 
 
@@ -227,7 +240,7 @@ class Utils(object):
  # traci utils-------------------------------------------------
     def create_edge_ID_dic(self):
         edge_ID_dic={self.get_edge_ID(edge): edge 
-        for edge in self.network.graph.edges()}
+        for edge in self.network.graph.edges() if edge != (None,None)}
         return edge_ID_dic
 
     def create_node_dic(self):
@@ -242,17 +255,32 @@ class Utils(object):
                             [self.get_edge_ID(edge) \
                             for edge in self.network.graph.out_edges(node)]\
                     for node in self.network.graph.nodes() \
-                    if node!=None and self.network.graph.out_degree(node)>1 \
+                    if node!=None \
                     }
         return node_dic
 
 
     def get_destination(self,vc):
         route_tail=traci.vehicle.getRoute(vc)[-1]
-        return self.get_tail(route_tail)
+        return self.get_edge_tail_node(route_tail)
     
-    def get_tail(self,edge):
+    def get_edge_tail_node(self,edge):
         return self.edge_ID_dic[edge][1]
+
+    def get_edge_path_ID(self,edgeID):
+        """receives edge ID returns edge"""
+        path=[edgeID]
+        while self.network.graph.out_degree(self.get_edge_tail_node(path[-1]))==1:
+            path.append(self.get_out_edges(self.get_edge_tail_node(path[-1]))[0])
+        return path
+
+    def get_next_road_IDs(self,source,action):
+        action_edge_ID=self.get_out_edges(source)[action]
+        return self.get_edge_path_ID(action_edge_ID)
+
+
+    def get_edge_path_tail_node(self,edge):
+        return self.get_edge_tail_node(self.get_edge_path_ID(edge)[-1])
 
     def get_out_edges(self,intersection):
         return self.node_dic[intersection]
@@ -260,12 +288,21 @@ class Utils(object):
     def get_edge_ID(self,edge):
         return self.network.graph.get_edge_data(*edge)['edge'].id
    
-    def is_valid(self,intersection):
-        return intersection in self.node_dic
+    def get_edge(self,edgeID):
+        return self.edge_ID_dic[edgeID]
+
+    def is_valid(self,source):
+        return len(self.get_out_edges(source))!=0
    
     def get_time(self):
         return traci.simulation.getTime()
 
+    def get_edge_weight(self,edge):
+        return self.network.graph.get_edge_data(*edge)['weigh']
+    
+
+    def get_shortest_path_time(self,source,destination):
+        return self.all_pairs_shortest_path[source][destination]
     #helper-------------------------------------------------
 
     def log(self, log_str, type='info'):

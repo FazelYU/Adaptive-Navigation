@@ -14,17 +14,20 @@ class AR_SUMO_Environment(gym.Env):
 					skip_routing,random_trips, Max_Sim_Time,
 					 device, Log, rolling_window):
 			#create the road network
-			self.network = RoadNetworkModel(Constants["ROOT"], Constants["Network_XML"])
-			# print(self.network.junctions, self.network.edges)
-			#traci sumo init
 			sys.path.append(os.path.join(Constants['SUMO_PATH'], os.sep, 'tools'))
 			sumoBinary = Constants["SUMO_GUI_PATH"]
 			self.sumoCmd = [sumoBinary, '-S', '-d', Constants['Simulation_Delay'], "-c", Constants["SUMO_CONFIG"]]
+		
+			traci.start(self.sumoCmd)
+
+			self.network = RoadNetworkModel(Constants["ROOT"], Constants["Network_XML"])
+			self.utils=Utils(environment=self,network=self.network,Num_Flows=Num_Flows,device=device,GAT=GAT,embed_network=embed_network)
+			
+			# breakpoint()
+			# traci.edge.adaptTraveltime('gneE6',4*traci.edge.getTraveltime('gneE6'))
+
 			self.reloadCmd = []
-			# for id, edge in self.network.edges.items():
-			# 	print(id, edge.type)
-			# for edge in self.network.graph.edges():
-			# 	print(self.network.graph.get_edge_data(*edge)['edge'].id)
+
 
 			self.vehicles={} # holds a copy of the info of the engine vehicles. I use it to find the vehicles that change road. it may be redundent with SUMO (SUMO might have an API that keeps track of the vehicles that change road)
 			self.trans_vehicles=[]
@@ -40,7 +43,6 @@ class AR_SUMO_Environment(gym.Env):
 			self.Max_Sim_Time=Max_Sim_Time
 			self.device=device
 			self.lanes_dic={}
-			self.utils=Utils(environment=self,network=self.network,Num_Flows=Num_Flows,valid_dic=self.lanes_dic,device=device,GAT=GAT,embed_network=embed_network)
 
 			self.stochastic_actions_probability = 0
 			self.actions = set(range(3))
@@ -58,8 +60,8 @@ class AR_SUMO_Environment(gym.Env):
 			# self.manual_drive=[1,0,2,0,2,0]
 			self.manual_drive=[]
 			self.current_step=-1
-			traci.start(self.sumoCmd)
-			self.utils.generate_random_trips(5)
+
+			
 
 		def run(self):
 			# traci.start(self.sumoCmd)
@@ -91,8 +93,19 @@ class AR_SUMO_Environment(gym.Env):
 			self.dones=[]	
 			
 		def step(self,actions=[]):
-			# self.trans_vehicles is an array of the vehicle_IDs that changed road in the last call to step()
 			self.utils.log("sim_time: "+str(traci.simulation.getTime()))
+			# traci.edge.getLastStepMeanSpeed('gneE6')
+			if traci.simulation.getTime()%5==0:
+				self.utils.generate_random_trip(traci.simulation.getTime())
+			if traci.simulation.getTime()%200==1:
+				self.utils.log("speed --")
+				traci.edge.setMaxSpeed('gneE6', 2)
+			if traci.simulation.getTime()%200==101:
+				self.utils.log("speed ++")
+				traci.edge.setMaxSpeed('gneE6', 14)
+
+			# ------------------------------------------
+			# self.trans_vehicles is an array of the vehicle_IDs that changed road in the last call to step()
 			actions=[self.get_random_action(trans_vehicle) for trans_vehicle in self.trans_vehicles]	
 			# if len(actions)!=0:
 			# 	breakpoint()
@@ -101,13 +114,13 @@ class AR_SUMO_Environment(gym.Env):
 			#-------------------------------------------- 
 			traci.simulationStep()
 
-
 			if self.embed_network:
 				self.utils.update_and_evolve_node_features()
 
 			self.refresh_trans()	
 			self.refresh_exp()
 
+			# -------------------------------------------
 			eng_vehicles_dic=self.get_engine_vehicles_dic()
 			transient_vcs=[vc for vc in eng_vehicles_dic if self.is_trans(vc)]
 			exiting_vcs=[vc for vc in self.vehicles if vc not in eng_vehicles_dic]
@@ -157,12 +170,12 @@ class AR_SUMO_Environment(gym.Env):
 				assert(ac!=None)
 				self.vehicles[vc]["memory0"]["action"]=ac
 				source=self.vehicles[vc]["memory0"]["source"]
-				next_road = self.utils.get_out_edges(source)[ac]
+				next_roads = self.utils.get_next_road_IDs(source,ac)
 				
 				current_road = self.vehicles[vc]["memory0"]["road"]
 				try:
-					traci.vehicle.setRoute(vc, [current_road, next_road])
-					self.utils.log('Sucess! {0} route changed. current_road:{1}, next_road:{2})'.format(vc, current_road, next_road))
+					traci.vehicle.setRoute(vc, [current_road]+ next_roads)
+					self.utils.log('Sucess! {0} route changed. current_road:{1}, next_road:{2})'.format(vc, current_road, next_roads))
 
 				except Exception as e:
 					self.utils.log(str(e),type='err')
@@ -179,18 +192,19 @@ class AR_SUMO_Environment(gym.Env):
 					( \
 						not self.__is_internal(traci.vehicle.getRoadID(vc)) and \
 						self.vehicles[vc]["memory0"]["source"] != \
-						self.utils.get_tail(traci.vehicle.getRoadID(vc)) \
+						self.utils.get_edge_path_tail_node(traci.vehicle.getRoadID(vc)) \
 					)
 
 		def transit_env_vc(self, vc, road):
 			if self.is_new(vc):
 				self.utils.log(vc+" entered simulation @ road:"+road)
 				destination=self.utils.get_destination(vc)
-				source=self.utils.get_tail(road)
+				source=self.utils.get_edge_path_tail_node(road)
+				
+
 				self.vehicles[vc]={
 
 				"destination": destination,
-				
 				"memory0":{
 					"time": self.utils.get_time(),
 					"road":road,
@@ -217,13 +231,14 @@ class AR_SUMO_Environment(gym.Env):
 			self.utils.log(vc+" changed its line to road:"+road)
 			try:
 				self.vehicles[vc]["memory0"]["time"]=self.utils.get_time()
-				source=self.utils.get_tail(road)
+				source=self.utils.get_edge_path_tail_node(road)
 				destination=self.vehicles[vc]["destination"]
 				self.vehicles[vc]["memory0"]["road"]=road
 				self.vehicles[vc]["memory0"]["source"]=source
 				self.vehicles[vc]["memory0"]["state"]=self.utils.get_state(source,destination)
 				self.vehicles[vc]["memory0"]["valid"]=self.utils.is_valid(source)
 			except Exception as e:
+				self.utils.log(str(e),type='err')
 				breakpoint()
 
 		def get_reward(self,vc):
@@ -263,13 +278,9 @@ class AR_SUMO_Environment(gym.Env):
 			self.vehicles.pop(vc)
 
 
-		def __is_internal(self, source):
-			edges = list(filter(lambda e: self.network.graph.get_edge_data(*e)['edge'].id == source, self.network.graph.edges()))
-			if len(edges) == 0:
-				return True
-			edge = edges[0]
-			edge = self.network.graph.get_edge_data(*edge)['edge']
-			return edge.type == 'internal'
+		def __is_internal(self, edgeID):
+			return edgeID not in self.utils.edge_ID_dic
+
 			
 
 		def add_to_next_trans_for_routing(self,vc):
