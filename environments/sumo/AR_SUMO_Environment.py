@@ -6,6 +6,7 @@ import traci
 import random
 import gym
 from gym import spaces
+from torch.utils.tensorboard import SummaryWriter
 
 
 class AR_SUMO_Environment(gym.Env):
@@ -60,7 +61,9 @@ class AR_SUMO_Environment(gym.Env):
 			# self.manual_drive=[1,0,2,0,2,0]
 			self.manual_drive=[]
 			self.current_step=-1
-
+			self.cummulative_tt=0
+			self.cummulative_n_ex_v=0
+			self.summ_writer = SummaryWriter()
 			
 
 		def run(self):
@@ -95,12 +98,19 @@ class AR_SUMO_Environment(gym.Env):
 		def step(self,actions=[]):
 			self.utils.log("sim_time: "+str(traci.simulation.getTime()))
 			# traci.edge.getLastStepMeanSpeed('gneE6')
+			# traci.vehicle.getLastActionTime(vid)
+			# traci.vehicle.getBestLanes(self, vehID)
+			# traci.vehicle.changeTarget()
+			# traci.inductionloop.getLastStepVehicleIDs("id induction loop")
+
+
+
 			if traci.simulation.getTime()%5==0:
 				self.utils.generate_random_trip(traci.simulation.getTime())
-			if traci.simulation.getTime()%200==1:
+			if traci.simulation.getTime()%400==1:
 				self.utils.log("speed --")
 				traci.edge.setMaxSpeed('gneE6', 2)
-			if traci.simulation.getTime()%200==101:
+			if traci.simulation.getTime()%400==201:
 				self.utils.log("speed ++")
 				traci.edge.setMaxSpeed('gneE6', 14)
 
@@ -110,7 +120,7 @@ class AR_SUMO_Environment(gym.Env):
 			# if len(actions)!=0:
 			# 	breakpoint()
 			
-			self.set_route(self.trans_vehicles, actions)
+			# self.set_route(self.trans_vehicles, actions)
 			#-------------------------------------------- 
 			traci.simulationStep()
 
@@ -122,10 +132,14 @@ class AR_SUMO_Environment(gym.Env):
 
 			# -------------------------------------------
 			eng_vehicles_dic=self.get_engine_vehicles_dic()
-			transient_vcs=[vc for vc in eng_vehicles_dic if self.is_trans(vc)]
+			# transient_vcs=[vc for vc in eng_vehicles_dic if self.is_trans(vc)]
+			transient_vcs=traci.inductionloop.getLastStepVehicleIDs('e1Detector_gneE1_0_0')
+			# if len(transient_vcs)>0:
+			# 	breakpoint()
 			exiting_vcs=[vc for vc in self.vehicles if vc not in eng_vehicles_dic]
 						
 			for vc in transient_vcs:
+				traci.vehicle.rerouteTraveltime(vc)
 				# if self.is_manual_on(vc):
 				# 	continue
 				self.transit_env_vc(vc, eng_vehicles_dic[vc])	
@@ -137,11 +151,23 @@ class AR_SUMO_Environment(gym.Env):
 			for vc in exiting_vcs:
 				assert(vc not in transient_vcs)
 				self.transit_env_vc(vc, None)
-				assert(self.vehicles[vc]["memory2"]!=None)
+				try:
+					assert(self.vehicles[vc]["memory2"]!=None)
+				except Exception as e:
+					print(e)
+					breakpoint()
 				self.save_expirence(vc,self.get_reward(vc),done=True)
-				self.exit(vc)	
+				self.cummulative_tt+=traci.simulation.getTime()-self.vehicles[vc]["start_time"]
+				self.cummulative_n_ex_v+=1
+				self.exit(vc)
+
+			if traci.simulation.getTime()%400==0:
+				self.summ_writer.add_scalar("AVTT:",self.cummulative_tt/self.cummulative_n_ex_v,int(traci.simulation.getTime()))
+				self.cummulative_tt=0
+				self.cummulative_n_ex_v=0
 			
 			if self.is_terminal():
+				self.summ_writer.close()
 				traci.close()
 				return True
 				return self.states,self.acts,self.next_states,self.rewds,self.dones,True
@@ -205,6 +231,7 @@ class AR_SUMO_Environment(gym.Env):
 				self.vehicles[vc]={
 
 				"destination": destination,
+				"start_time":traci.simulation.getTime(),
 				"memory0":{
 					"time": self.utils.get_time(),
 					"road":road,
@@ -264,7 +291,7 @@ class AR_SUMO_Environment(gym.Env):
 			check for some terminal condition. e.g. all vehicles exited the simulation or the time limit has passed
 
 			"""
-			return traci.simulation.getMinExpectedNumber() == 0
+			return traci.simulation.getMinExpectedNumber() == 0 or traci.simulation.getTime()==40000
 
 		def get_engine_vehicles_dic(self):
 			"""
