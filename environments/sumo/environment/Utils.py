@@ -14,11 +14,11 @@ Constants = {
     "SUMO_CONFIG" : "./environments/sumo/networks/3x3/network.sumocfg", #path to your sumo config file
     "ROOT" : "./",
     "Network_XML" : "./environments/sumo/networks/3x3/test1.net.xml",
-    'LOG' : True,
+    'LOG' : False,
     'WARNINGS': False,
     'WHERE':False,
-    'Simulation_Delay' : '100'
-}
+    'Simulation_Delay' : '10'
+    }
 
 
 
@@ -42,30 +42,42 @@ class Utils(object):
 
         self.gat=GAT
         self.embed_network=embed_network
-        self.stat_dimintion=4
-        self.nodes=list(self.network.graph.nodes())
-        self.nodesIndex = {self.nodes[idx]: idx for idx in range(len(self.nodes))}
         self.edge_ID_dic=self.create_edge_ID_dic()
         self.node_dic=self.create_node_dic()
-        self.sink_list=[self.get_edge_ID(edge) \
+        self.agent_dic=self.create_agent_dic()
+        self.agent_dic_index = {list(self.agent_dic)[idx]: idx for idx in range(len(self.agent_dic))}
+        self.sink_edge_list=[self.get_edge_ID(edge) \
                         for edge in self.network.graph.out_edges \
                         if self.network.graph.out_degree(edge[1])==0 and \
                         self.network.graph.in_degree(edge[1])==1]
-        self.source_list=[self.get_edge_ID(edge) \
+        self.sink_nodes_list=[self.get_edge_tail_node(sink_edge) for sink_edge in self.sink_edge_list]
+        self.sink_nodes_index={self.sink_nodes_list[idx]:idx for idx in range(len(self.sink_nodes_list))}
+        self.source_edge_list=[self.get_edge_ID(edge) \
                         for edge in self.network.graph.out_edges \
                         if self.network.graph.out_degree(edge[0])==1 and \
                         self.network.graph.in_degree(edge[0])==0
                         ] 
 
         self.all_pairs_shortest_path= dict(nx.all_pairs_dijkstra_path_length(self.network.graph))
+        self.sink_embed_dim=len(self.sink_nodes_list)
+        self.network_embed_dim=1
+        self.state_dim=self.sink_embed_dim+self.network_embed_dim
 
     
-    def get_state(self,source,destination):
-        dest_embed=[0]*len(self.nodes)
-        dest_embed[self.nodesIndex[destination]]=1
-        return {"router": source,
-                "embed": dest_embed}
+    def get_state(self,source,sink):
+        dest_embed=[0]*len(self.sink_nodes_list)
+        dest_embed[self.sink_nodes_index[sink]]=1
 
+        embeding=dest_embed+self.get_network_state()
+        return {"agent_id": source,
+                "embeding": embeding}
+
+    def get_network_state(self):
+        speed=traci.lane.getMaxSpeed('gneE6_0')
+        if speed==2:
+            return [0]
+        else:
+            return[1]
     # def get_state(self,origin,destination,vehicle_id):
     #     reshaped_origin=self.res_road(origin)
     #     reshaped_destination=self.res_road(destination)
@@ -81,34 +93,14 @@ class Utils(object):
     #     else:
     #         return state
 
-    def get_state_diminsion(self):
-        
-        return self.stat_dimintion
-            
+    def get_state_diminsion(self): 
+        return self.state_dim 
+    
     def get_flow_id(self,vehicle_id):
         splited=vehicle_id.split('_')
         assert(len(splited)==2)
         return int(splited[1])
 
-    def generate_random_trips(self,num_trips,num_vehiles_per_trip=None):
-        if num_vehiles_per_trip==None:
-            num_vehiles_per_trip=[1 for i in range(0,num_trips)]
-        
-        for i in range(0,num_trips):
-            source=random.choice(self.source_list)
-            sink=random.choice(self.sink_list)
-            traci.route.add("trip_{}".format(i),[source,sink])
-            # stage=traci.simulation.findRoute(source,sink)
-            # breakpoint()
-            # edgeTT=sum([traci.edge.getTraveltime(edgeID) for edgeID in traci.route.getEdges("trip_{}".format(i)) ])
-            # breakpoint()
-            for j in range(0,num_vehiles_per_trip[i]):
-                traci.vehicle.add("vehicle_{}_{}".format(i,j),"trip_{}".format(i))
-    def generate_random_trip(self,id):
-        source=random.choice(self.source_list)
-        sink=random.choice(self.sink_list)
-        traci.route.add("trip_{}".format(id),[source,sink])
-        traci.vehicle.add("vehicle_{}".format(id),"trip_{}".format(id))
 
 
 
@@ -238,6 +230,8 @@ class Utils(object):
 
 
  # traci utils-------------------------------------------------
+
+        
     def create_edge_ID_dic(self):
         edge_ID_dic={self.get_edge_ID(edge): edge 
         for edge in self.network.graph.edges() if edge != (None,None)}
@@ -259,6 +253,34 @@ class Utils(object):
                     }
         return node_dic
 
+    def create_agent_dic(self):
+        return {\
+                node: len(self.node_dic[node]) \
+                for node in self.node_dic if \
+                len(self.node_dic[node])>1\
+        }
+
+    def generate_random_trips(self,num_trips,num_vehiles_per_trip=None):
+        if num_vehiles_per_trip==None:
+            num_vehiles_per_trip=[1 for i in range(0,num_trips)]
+        
+        for i in range(0,num_trips):
+            source=random.choice(self.source_edge_list)
+            sink_edge=random.choice(self.sink_edge_list)
+            traci.route.add("trip_{}".format(i),[source,sink_edge])
+            # stage=traci.simulation.findRoute(source,sink_edge)
+            # breakpoint()
+            # edgeTT=sum([traci.edge.getTraveltime(edgeID) for edgeID in traci.route.getEdges("trip_{}".format(i)) ])
+            # breakpoint()
+            for j in range(0,num_vehiles_per_trip[i]):
+                traci.vehicle.add("vehicle_{}_{}".format(i,j),"trip_{}".format(i))
+    
+    def generate_random_trip(self,id):
+        source_edge=random.choice(self.source_edge_list)
+        sink_edge=random.choice(self.sink_edge_list)
+        traci.route.add("trip_{}".format(id),[source_edge,sink_edge])
+        traci.vehicle.add("vehicle_{}".format(id),"trip_{}".format(id))
+        return "vehicle_{}".format(id),source_edge,self.get_edge_tail_node(sink_edge)
 
     def get_destination(self,vc):
         route_tail=traci.vehicle.getRoute(vc)[-1]
@@ -267,23 +289,23 @@ class Utils(object):
     def get_edge_tail_node(self,edge):
         return self.edge_ID_dic[edge][1]
 
-    def get_edge_path_ID(self,edgeID):
+    def get_edge_path(self,edgeID):
         """receives edge ID returns edge"""
         path=[edgeID]
-        while self.network.graph.out_degree(self.get_edge_tail_node(path[-1]))==1:
+        while self.get_edge_tail_node(path[-1]) not in list(self.agent_dic)+self.sink_nodes_list:
             path.append(self.get_out_edges(self.get_edge_tail_node(path[-1]))[0])
         return path
 
-    def get_next_road_IDs(self,source,action):
-        action_edge_ID=self.get_out_edges(source)[action]
-        return self.get_edge_path_ID(action_edge_ID)
-
-
     def get_edge_path_tail_node(self,edge):
-        return self.get_edge_tail_node(self.get_edge_path_ID(edge)[-1])
+        return self.get_edge_tail_node(self.get_edge_path(edge)[-1])
+  
 
-    def get_out_edges(self,intersection):
-        return self.node_dic[intersection]
+    def get_next_road_IDs(self,node,action_edge_index):
+        action_edge_ID=self.get_out_edges(node)[action_edge_index]
+        return self.get_edge_path(action_edge_ID)
+
+    def get_out_edges(self,node):
+        return self.node_dic[node]
     
     def get_edge_ID(self,edge):
         return self.network.graph.get_edge_data(*edge)['edge'].id

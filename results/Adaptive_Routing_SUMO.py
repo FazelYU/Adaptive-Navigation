@@ -42,7 +42,7 @@ config.seed = 1
 # embedding_dimensions = [[num_possible_states, 20]]
 # print("Num possible states ", num_possible_states)
 
-config.num_episodes_to_run = 1
+config.num_episodes_to_run = 100
 config.file_to_save_data_results = "Data_and_Graphs/Adaptive_Routing.pkl"
 config.file_to_save_results_graph = "Data_and_Graphs/Adaptive_Routing.png"
 config.show_solution_score = False
@@ -76,7 +76,7 @@ config.hyperparameters = {
     },
 
     "DQN_Agents": {
-        "linear_hidden_units": [30, 10],
+        "linear_hidden_units": [3, 3],
         "learning_rate": 0.01,
         "buffer_size": 10000,
         "batch_size": 64,
@@ -86,7 +86,7 @@ config.hyperparameters = {
         "batch_norm": False,
         "gradient_clipping_norm": 5,
         "update_every_n_steps": 1,
-        "epsilon_decay_rate_denominator": 10,
+        "epsilon_decay_rate_denominator": 5,
         "discount_rate": 0.99,
         "learning_iterations": 1,
         "tau": 0.01,
@@ -210,7 +210,6 @@ config.GAT_parameters=gat.parameters()
 
 config.environment = envm(GAT=gat, embed_network=False ,Num_Flows=1,skip_routing=[],random_trips=True,Max_Sim_Time=600,device=device,Log=True,rolling_window=10)
 
-config.environment.run()
 if __name__== '__main__':
     AGENTS = [DQN] #DIAYN] # A3C] #SNN_HRL] #, DDQN]
     trainer = Trainer(config, AGENTS)

@@ -46,7 +46,7 @@ class Base_Agent(object):
         self.turn_off_exploration = False
         gym.logger.set_level(40)  # stops it from printing an unnecessary warning
         self.log_game_info()
-        self.lanes_dic=config.environment.lanes_dic
+        self.env_agent_dic=config.environment.utils.agent_dic
         self.summ_writer = SummaryWriter()
 
     def get_environment_title(self):
@@ -261,12 +261,15 @@ class Base_Agent(object):
 
         while self.env_episode_number < num_episodes:
             try:
+                if self.env_episode_number==num_episodes-10:
+                    self.turn_off_any_epsilon_greedy_exploration()
+                    
                 self.run()
                 self.env_episode_number += 1
 
                 for agent_id in self.agent_dic:
                     # BUG: when memory is full the rate of the exploration stalls decreasing
-                    self.summ_writer.add_scalar('Memory_Length/'+str(agent_id),self.agent_dic[agent_id]["memory"].__len__(),self.env_episode_number)
+                    # self.summ_writer.add_scalar('Memory_Length/'+str(agent_id),self.agent_dic[agent_id]["memory"].__len__(),self.env_episode_number)
 
                     if self.agent_dic[agent_id]["total_exp_count"]<self.agent_dic[agent_id]["memory"].__len__():
                         self.agent_dic[agent_id]["total_exp_count"]=self.agent_dic[agent_id]["memory"].__len__()
@@ -288,8 +291,13 @@ class Base_Agent(object):
         """Runs a step within a game including a learning step if required"""
         self.reset_game()
         while not self.done:
-            actions = self.pick_action(self.environment.trans_vehicles_states)
+            actions = self.pick_action(self.environment.transient_avs_states)
             
+            try:
+                assert(len(actions)==len(self.environment.transient_avs_states))
+            except Exception as e:
+                breakpoint()
+
             num_new_exp=self.conduct_action(actions)
             
             if num_new_exp==0:
@@ -313,7 +321,7 @@ class Base_Agent(object):
         for state,action,reward,next_state,done in zip(self.mem_states,self.mem_actions,self.mem_rewards,self.mem_next_states,self.mem_done):
             agent_id=self.get_agent_id(state)
             try:
-                assert(agent_id in self.lanes_dic)
+                assert(agent_id in self.env_agent_dic)
             except:
                 breakpoint()
                 
@@ -388,7 +396,7 @@ class Base_Agent(object):
 
     def create_agent_dic(self, input_dim, key_to_use=None, override_seed=None, hyperparameters=None):
         """Creates a neural network for the agents to use
-        lanes_dic is a dictionary with the road-network lanes as keys and number of actions as values"""
+        env_agent_dic is a dictionary with the road-network lanes as keys and number of actions as values"""
         if hyperparameters is None: hyperparameters = self.hyperparameters
         if key_to_use: hyperparameters = hyperparameters[key_to_use]
         if override_seed: seed = override_seed
@@ -403,29 +411,28 @@ class Base_Agent(object):
             if key not in hyperparameters.keys():
                 hyperparameters[key] = default_hyperparameter_choices[key]
 
-        lanes_dic=self.lanes_dic
-        agent_dic={}
-        for lane in lanes_dic:
-            agent_dic[lane]={}
-            agent_dic[lane]["NN"]=NN(input_dim=input_dim, 
-                    layers_info=hyperparameters["linear_hidden_units"] + [lanes_dic[lane]],
+        agent_dic={
+        agent_id:{\
+            "NN":NN(input_dim=input_dim, 
+                    layers_info=hyperparameters["linear_hidden_units"] + [self.env_agent_dic[agent_id]],
                     output_activation=hyperparameters["final_layer_activation"],
                     batch_norm=hyperparameters["batch_norm"], dropout=hyperparameters["dropout"],
                     hidden_activations=hyperparameters["hidden_activations"], initialiser=hyperparameters["initialiser"],
                     columns_of_data_to_be_embedded=hyperparameters["columns_of_data_to_be_embedded"],
                     embedding_dimensions=hyperparameters["embedding_dimensions"], y_range=hyperparameters["y_range"],
-                    random_seed=seed).to(self.device)
-           
-            
-            agent_dic[lane]["optimizer"]=optim.Adam(
-                                            list(agent_dic[lane]["NN"].parameters())+list(self.config.GAT_parameters),
-                                            lr=self.hyperparameters["learning_rate"], eps=1e-4)
+                    random_seed=seed).to(self.device),
+            "memory": Replay_Buffer(self.hyperparameters["buffer_size"], self.hyperparameters["batch_size"], self.config.seed, self.device),
+            "new_exp_count":0,
+            "episode_number":0,
+            "total_exp_count":0 ,
+            }
 
-            agent_dic[lane]["memory"]= Replay_Buffer(self.hyperparameters["buffer_size"], self.hyperparameters["batch_size"], self.config.seed, self.device)
+        for agent_id in self.env_agent_dic
+        }
 
-            agent_dic[lane]["new_exp_count"]=0
-            agent_dic[lane]["episode_number"]=0 # num episodes with new exps 
-            agent_dic[lane]["total_exp_count"]=0
+        for agent_id in agent_dic:
+            agent_dic[agent_id]["optimizer"]=optim.Adam(list(agent_dic[agent_id]["NN"].parameters())+list(self.config.GAT_parameters),
+                                lr=self.hyperparameters["learning_rate"], eps=1e-4)
 
         return agent_dic    
 
@@ -468,7 +475,7 @@ class Base_Agent(object):
             to_model.data.copy_(from_model.data.clone())
 
     def get_agent_id(self,state):
-        return self.environment.utils.state2road(state)
+        return state["agent_id"]
 
     def locally_save_policy(self):
         """Saves the policy"""

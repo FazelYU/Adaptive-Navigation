@@ -79,8 +79,8 @@ def get_main_loop(config, gat, sigmoid_cross_entropy_loss, optimizer, patience_p
             if phase == LoopPhase.TRAIN:
                 # Log metrics
                 if config['enable_tensorboard']:
-                    writer.add_scalar('training_loss', loss.item(), global_step)
-                    writer.add_scalar('training_micro_f1', micro_f1, global_step)
+                    # writer.add_scalar('training_loss', loss.item(), global_step)
+                    # writer.add_scalar('training_micro_f1', micro_f1, global_step)
 
                 # Log to console
                 if config['console_log_freq'] is not None and batch_idx % config['console_log_freq'] == 0:
@@ -96,8 +96,8 @@ def get_main_loop(config, gat, sigmoid_cross_entropy_loss, optimizer, patience_p
             elif phase == LoopPhase.VAL:
                 # Log metrics
                 if config['enable_tensorboard']:
-                    writer.add_scalar('val_loss', loss.item(), global_step)
-                    writer.add_scalar('val_micro_f1', micro_f1, global_step)
+                    # writer.add_scalar('val_loss', loss.item(), global_step)
+                    # writer.add_scalar('val_micro_f1', micro_f1, global_step)
 
                 # Log to console
                 if config['console_log_freq'] is not None and batch_idx % config['console_log_freq'] == 0:

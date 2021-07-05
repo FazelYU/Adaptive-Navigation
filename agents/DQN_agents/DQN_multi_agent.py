@@ -34,7 +34,7 @@ class DQN(Base_Agent):
             # state = state.float().to(self.device)
             agent_id=self.get_agent_id(state)
             try:
-                assert(agent_id in self.lanes_dic)
+                assert(agent_id in self.env_agent_dic)
             except:
                 breakpoint()
 
@@ -42,7 +42,8 @@ class DQN(Base_Agent):
             q_network_local=self.agent_dic[agent_id]["NN"]
             q_network_local.eval() #puts network in evaluation mode
             with torch.no_grad():
-                action_values = q_network_local(state)
+                embeding=torch.tensor(state['embeding'],dtype=torch.float).unsqueeze(0)
+                action_values = q_network_local(embeding)
             q_network_local.train() #puts network back in training mode
             
             # TODO
@@ -60,7 +61,7 @@ class DQN(Base_Agent):
         for _ in range(self.hyperparameters["learning_iterations"]):
             states, actions, rewards, next_states, dones = self.sample_experiences(memory) #Sample experiences
             loss = self.compute_loss(agent_id, states, next_states, rewards, actions, dones)
-            self.summ_writer.add_scalar('Loss/'+str(agent_id),loss,self.env_episode_number)
+            # self.summ_writer.add_scalar('Loss/'+str(agent_id),loss,self.env_episode_number)
             
             # writer.add_scalar('Loss/train', np.random.random(), n_iter)
             actions_list = [action_X.item() for action_X in actions ]
@@ -85,8 +86,7 @@ class DQN(Base_Agent):
 
     def compute_q_values_for_next_states(self, next_states,dones):
         """Computes the q_values for next state we will use to create the loss to train the Q network"""
-        
-        batch_size=next_states.size()[0]
+        batch_size=dones.size()[0]
         Q_targets_next=torch.zeros(batch_size,1).to(self.device)
         
         masks_dic={}
