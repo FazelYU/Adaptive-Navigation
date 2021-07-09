@@ -52,6 +52,7 @@ class DDPG(Base_Agent):
         if state is None: state = torch.from_numpy(self.state).float().unsqueeze(0).to(self.device)
         self.actor_local.eval()
         with torch.no_grad():
+            breakpoint()
             action = self.actor_local(state).cpu().data.numpy()
         self.actor_local.train()
         action = self.exploration_strategy.perturb_action_for_exploration_purposes({"action": action})

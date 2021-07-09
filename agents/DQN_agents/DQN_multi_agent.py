@@ -42,7 +42,9 @@ class DQN(Base_Agent):
             q_network_local=self.agent_dic[agent_id]["NN"]
             q_network_local.eval() #puts network in evaluation mode
             with torch.no_grad():
-                embeding=torch.tensor(state['embeding'],dtype=torch.float).unsqueeze(0)
+                embeding=torch.tensor(state['embeding'],dtype=torch.float).unsqueeze(0).to(self.device)
+                # breakpoint()
+                
                 action_values = q_network_local(embeding)
             q_network_local.train() #puts network back in training mode
             
@@ -70,7 +72,6 @@ class DQN(Base_Agent):
 
     def compute_loss(self, agent_id, states, next_states, rewards, actions, dones):
         """Computes the loss required to train the Q network"""
-
         with torch.no_grad():
             Q_targets = self.compute_q_targets(next_states, rewards, dones)
         
@@ -86,6 +87,7 @@ class DQN(Base_Agent):
 
     def compute_q_values_for_next_states(self, next_states,dones):
         """Computes the q_values for next state we will use to create the loss to train the Q network"""
+                
         batch_size=dones.size()[0]
         Q_targets_next=torch.zeros(batch_size,1).to(self.device)
         
@@ -93,9 +95,8 @@ class DQN(Base_Agent):
         for i in range(0,batch_size):
             if dones[i]==1:
                 continue
-            state=next_states[i]
-            state=torch.unsqueeze(state,0)
-            agent_id=self.get_agent_id(state)
+            agent_id=self.get_agent_id(next_states[i][0])
+            # state=torch.unsqueeze(state,0)
 
             if not agent_id in masks_dic:
                 masks_dic[agent_id]={} 
@@ -109,7 +110,12 @@ class DQN(Base_Agent):
         for agent_id in masks_dic:
             agent_mask=torch.Tensor(masks_dic[agent_id]["mask"]).unsqueeze(1).to(self.device,dtype=torch.bool)
             agent_states=next_states[masks_dic[agent_id]["index"]]
-            agent_Q_targets_next=self.agent_dic[agent_id]["NN"](agent_states).detach().max(1)[0].unsqueeze(1)
+            agent_states_embedings=[agent_state[0]['embeding'] for agent_state in agent_states]
+            agent_states_embedings=torch.tensor(agent_states_embedings,dtype=torch.float).to(self.device)
+            try:
+                agent_Q_targets_next=self.agent_dic[agent_id]["NN"](agent_states_embedings).detach().max(1)[0].unsqueeze(1)
+            except Exception as e:
+                breakpoint()
             Q_targets_next.masked_scatter_(agent_mask,agent_Q_targets_next)
 
         return Q_targets_next

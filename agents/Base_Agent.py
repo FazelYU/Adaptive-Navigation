@@ -47,7 +47,7 @@ class Base_Agent(object):
         gym.logger.set_level(40)  # stops it from printing an unnecessary warning
         self.log_game_info()
         self.env_agent_dic=config.environment.utils.agent_dic
-        self.summ_writer = SummaryWriter()
+        # self.summ_writer = SummaryWriter()
 
     def get_environment_title(self):
         """Extracts name of environment from it"""
@@ -156,7 +156,7 @@ class Base_Agent(object):
     def reset_game(self):
         """Resets the game information so we are ready to play a new episode"""
         self.environment.seed(self.config.seed)
-        self.states = self.environment.reset(self.env_episode_number)
+        self.states = self.environment.reset(self.env_episode_number,self.config)
 
         self.mem_states= None
         self.mem_next_states = None
@@ -261,9 +261,6 @@ class Base_Agent(object):
 
         while self.env_episode_number < num_episodes:
             try:
-                if self.env_episode_number==num_episodes-10:
-                    self.turn_off_any_epsilon_greedy_exploration()
-                    
                 self.run()
                 self.env_episode_number += 1
 
@@ -271,9 +268,10 @@ class Base_Agent(object):
                     # BUG: when memory is full the rate of the exploration stalls decreasing
                     # self.summ_writer.add_scalar('Memory_Length/'+str(agent_id),self.agent_dic[agent_id]["memory"].__len__(),self.env_episode_number)
 
-                    if self.agent_dic[agent_id]["total_exp_count"]<self.agent_dic[agent_id]["memory"].__len__():
-                        self.agent_dic[agent_id]["total_exp_count"]=self.agent_dic[agent_id]["memory"].__len__()
-                        self.agent_dic[agent_id]["episode_number"]+=1
+                    # if self.agent_dic[agent_id]["total_exp_count"]<self.agent_dic[agent_id]["memory"].__len__():
+                    #     self.agent_dic[agent_id]["total_exp_count"]=self.agent_dic[agent_id]["memory"].__len__()
+                    self.environment.utils.log("episodne number should be different for all agents",type='warn')
+                    self.agent_dic[agent_id]["episode_number"]+=1
 
                 if save_and_print_results: self.save_and_print_result()
             except KeyboardInterrupt:
@@ -284,7 +282,7 @@ class Base_Agent(object):
         time_taken = time.time() - start
         if show_whether_achieved_goal: self.show_whether_achieved_goal()
         if self.config.save_model: self.locally_save_policy()
-        self.summ_writer.close()
+        # self.summ_writer.close()
         return self.game_full_episode_scores, self.rolling_results, time_taken
 
     def run(self):
@@ -402,7 +400,7 @@ class Base_Agent(object):
         if override_seed: seed = override_seed
         else: seed = self.config.seed
 
-        default_hyperparameter_choices = {"output_activation": None, "hidden_activations": "relu", "dropout": 0.0,
+        default_hyperparameter_choices = {"output_activation": None, "hidden_activations": "leakyRelu", "dropout": 0.0,
                                           "initialiser": "default", "batch_norm": False,
                                           "columns_of_data_to_be_embedded": [],
                                           "embedding_dimensions": [], "y_range": ()}

@@ -13,11 +13,11 @@ Constants = {
     "SUMO_GUI_PATH" : "/usr/share/sumo/bin/sumo-gui", #path to sumo-gui bin in your system
     "SUMO_CONFIG" : "./environments/sumo/networks/3x3/network.sumocfg", #path to your sumo config file
     "ROOT" : "./",
-    "Network_XML" : "./environments/sumo/networks/3x3/test1.net.xml",
-    'LOG' : False,
+    "Network_XML" : "./environments/sumo/networks/3x3/3x3.net.xml",
+    'LOG' : True,
     'WARNINGS': False,
     'WHERE':False,
-    'Simulation_Delay' : '10'
+    'Simulation_Delay' : '200'
     }
 
 
@@ -42,28 +42,35 @@ class Utils(object):
 
         self.gat=GAT
         self.embed_network=embed_network
+        
         self.edge_ID_dic=self.create_edge_ID_dic()
         self.node_dic=self.create_node_dic()
         self.agent_dic=self.create_agent_dic()
         self.agent_dic_index = {list(self.agent_dic)[idx]: idx for idx in range(len(self.agent_dic))}
+        
         self.sink_edge_list=[self.get_edge_ID(edge) \
                         for edge in self.network.graph.out_edges \
-                        if self.network.graph.out_degree(edge[1])==0 and \
+                        if self.network.graph.out_degree(edge[1])==1 and \
                         self.network.graph.in_degree(edge[1])==1]
-        self.sink_nodes_list=[self.get_edge_tail_node(sink_edge) for sink_edge in self.sink_edge_list]
-        self.sink_nodes_index={self.sink_nodes_list[idx]:idx for idx in range(len(self.sink_nodes_list))}
         self.source_edge_list=[self.get_edge_ID(edge) \
                         for edge in self.network.graph.out_edges \
                         if self.network.graph.out_degree(edge[0])==1 and \
                         self.network.graph.in_degree(edge[0])==0
-                        ] 
+                        ]
+        self.sink_edge_list=['-gneE13']
+        self.source_edge_list=['gneE13']
 
+
+        self.sink_nodes_list=[self.get_edge_tail_node(sink_edge) for sink_edge in self.sink_edge_list]
+        self.sink_nodes_index={self.sink_nodes_list[idx]:idx for idx in range(len(self.sink_nodes_list))}
         self.all_pairs_shortest_path= dict(nx.all_pairs_dijkstra_path_length(self.network.graph))
         self.sink_embed_dim=len(self.sink_nodes_list)
-        self.network_embed_dim=1
+        self.network_embed_dim=0
         self.state_dim=self.sink_embed_dim+self.network_embed_dim
+        self.induction_loops=traci.inductionloop.getIDList()
+        self.sink_edge_induction_loops=self.get_sink_edge_induction_loops()
+        self.transition_induction_loops=[il for il in self.induction_loops if il not in self.sink_edge_induction_loops]
 
-    
     def get_state(self,source,sink):
         dest_embed=[0]*len(self.sink_nodes_list)
         dest_embed[self.sink_nodes_index[sink]]=1
@@ -73,11 +80,8 @@ class Utils(object):
                 "embeding": embeding}
 
     def get_network_state(self):
-        speed=traci.lane.getMaxSpeed('gneE6_0')
-        if speed==2:
-            return [0]
-        else:
-            return[1]
+       return []
+            # return[1]
     # def get_state(self,origin,destination,vehicle_id):
     #     reshaped_origin=self.res_road(origin)
     #     reshaped_destination=self.res_road(destination)
@@ -276,10 +280,14 @@ class Utils(object):
                 traci.vehicle.add("vehicle_{}_{}".format(i,j),"trip_{}".format(i))
     
     def generate_random_trip(self,id):
+        # source_edge='gneE19'
         source_edge=random.choice(self.source_edge_list)
+        # sink_edge='gneE18'
         sink_edge=random.choice(self.sink_edge_list)
         traci.route.add("trip_{}".format(id),[source_edge,sink_edge])
         traci.vehicle.add("vehicle_{}".format(id),"trip_{}".format(id))
+        # traci.vehicle.setColor("vehicle_{}".format(id),(255,0,255))
+        # traci.vehicle.setShapeClass("vehicle_{}".format(id),"truck")
         return "vehicle_{}".format(id),source_edge,self.get_edge_tail_node(sink_edge)
 
     def get_destination(self,vc):
@@ -292,7 +300,7 @@ class Utils(object):
     def get_edge_path(self,edgeID):
         """receives edge ID returns edge"""
         path=[edgeID]
-        while self.get_edge_tail_node(path[-1]) not in list(self.agent_dic)+self.sink_nodes_list:
+        while self.get_edge_tail_node(path[-1]) not in list(self.agent_dic):
             path.append(self.get_out_edges(self.get_edge_tail_node(path[-1]))[0])
         return path
 
@@ -325,6 +333,12 @@ class Utils(object):
 
     def get_shortest_path_time(self,source,destination):
         return self.all_pairs_shortest_path[source][destination]
+
+    def get_sink_edge_induction_loops(self):
+        return [il for il in self.induction_loops if self.get_induction_loop_edge(il) in self.sink_edge_list]
+    
+    def get_induction_loop_edge(self,inductionloop):
+        return inductionloop.split('_')[1]
     #helper-------------------------------------------------
 
     def log(self, log_str, type='info'):

@@ -14,6 +14,7 @@ class Epsilon_Greedy_Exploration(Base_Exploration_Strategy):
         else:
             self.exploration_cycle_episodes_length = None
 
+        self.stop_exploration_episode=self.config.hyperparameters["stop_exploration_episode"]
         if "random_episodes_to_run" in self.config.hyperparameters.keys():
             self.random_episodes_to_run = self.config.hyperparameters["random_episodes_to_run"]
             print("Running {} random episodes".format(self.random_episodes_to_run))
@@ -32,8 +33,12 @@ class Epsilon_Greedy_Exploration(Base_Exploration_Strategy):
             self.notified_that_exploration_turned_off = True
         epsilon = self.get_updated_epsilon_exploration(action_info)
 
+        if episode_number < self.random_episodes_to_run:
+            return  np.random.randint(0, action_values.shape[1])
 
-        if (random.random() > epsilon or turn_off_exploration) and (episode_number >= self.random_episodes_to_run):
+        if  episode_number>self.stop_exploration_episode or \
+            random.random() > epsilon or \
+            turn_off_exploration:
             return torch.argmax(action_values).item()
         return  np.random.randint(0, action_values.shape[1])
 
