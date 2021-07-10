@@ -42,7 +42,7 @@ config.seed = 1
 # embedding_dimensions = [[num_possible_states, 20]]
 # print("Num possible states ", num_possible_states)
 
-config.num_episodes_to_run = 1
+config.num_episodes_to_run = 100
 config.file_to_save_data_results = "Data_and_Graphs/Adaptive_Routing.pkl"
 config.file_to_save_results_graph = "Data_and_Graphs/Adaptive_Routing.png"
 config.show_solution_score = False
@@ -50,7 +50,7 @@ config.visualise_individual_results = False
 config.visualise_overall_agent_results = True
 config.standard_deviation_results = 1.0
 config.runs_per_agent = 1
-config.use_GPU = False
+config.use_GPU = True
 config.overwrite_existing_results_file = True
 config.randomise_random_seed = True
 config.save_model = False

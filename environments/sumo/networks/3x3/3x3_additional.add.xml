@@ -65,10 +65,10 @@
     <e1Detector id="e1Detector_gneE15_0_1" lane="gneE15_0" pos="70.00" freq="1" file="e1Detector_gneE15_0_1.xml"/>
     <e1Detector id="e1Detector_gneE16_0_0" lane="gneE16_0" pos="70.00" freq="1" file="e1Detector_gneE16_0_0.xml"/>
     <e1Detector id="e1Detector_gneE17_0_2" lane="gneE17_0" pos="70.00" freq="1" file="e1Detector_gneE17_0_2.xml"/>
-   <!--  <e1Detector id="e1Detector_gneE18_0_29" lane="gneE18_0" pos="70" freq="1" file="e1Detector_gneE18_0_29.xml"/> -->
-    <!-- <e1Detector id="e1Detector_gneE19_0_25" lane="gneE19_0" pos="70" freq="1" file="e1Detector_gneE19_0_25.xml"/> -->
+    <e1Detector id="e1Detector_gneE18_0_29" lane="gneE18_0" pos="70" freq="1" file="e1Detector_gneE18_0_29.xml"/>
+    <e1Detector id="e1Detector_gneE19_0_25" lane="gneE19_0" pos="70" freq="1" file="e1Detector_gneE19_0_25.xml"/>
     <e1Detector id="e1Detector_gneE1_0_27" lane="gneE1_0" pos="155.00" freq="1" file="e1Detector_gneE1_0_27.xml"/>
-    <!-- <e1Detector id="e1Detector_gneE20_0_20" lane="gneE20_0" pos="70" freq="1" file="e1Detector_gneE20_0_20.xml"/> -->
+    <e1Detector id="e1Detector_gneE20_0_20" lane="gneE20_0" pos="70" freq="1" file="e1Detector_gneE20_0_20.xml"/>
     <e1Detector id="e1Detector_gneE2_0_23" lane="gneE2_0" pos="155.00" freq="1" file="e1Detector_gneE2_0_23.xml"/>
     <e1Detector id="e1Detector_gneE6_0_5" lane="gneE6_0" pos="155.00" freq="1" file="e1Detector_gneE6_0_5.xml"/>
     <e1Detector id="e1Detector_gneE7_0_9" lane="gneE7_0" pos="155.00" freq="1" file="e1Detector_gneE7_0_9.xml"/>

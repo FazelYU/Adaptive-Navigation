@@ -47,7 +47,7 @@ class AR_SUMO_Environment(gym.Env):
 			self.actions = set(range(3))
 			self.id = "Adaptive Routing"
 			self.action_space = spaces.Discrete(3)
-			self.state_size=self.utils.get_state_diminsion()
+			# self.state_size=self.utils.get_state_diminsion()
 			self.seed()
 			self.reward_threshold = 0.0
 			self.trials = rolling_window
@@ -69,8 +69,9 @@ class AR_SUMO_Environment(gym.Env):
 						
 		def reset(self,episode,config):
 			self.episode_number=episode
-			# if episode==config.num_episodes_to_run-1:
-			# 	breakpoint()
+			if episode==config.num_episodes_to_run-1:
+				Constants["LOG"]=True
+				breakpoint()
 			# self.vehicles={}
 			# self.refresh_trans()
 			# self.refresh_exp()
@@ -125,19 +126,26 @@ class AR_SUMO_Environment(gym.Env):
 				# self.add_to_next_trans_for_routing(vc)
 				road=traci.vehicle.getRoadID(vc)
 				agent_id=self.utils.get_edge_path_tail_node(road)			
-				next_state=self.utils.get_state(agent_id,self.vehicles[vc]["destination"])
+				next_state=self.utils.get_state(road,agent_id,self.vehicles[vc]["destination"])
 				self.transient_avs_states.append(next_state)
 				
 				if not self.vehicles[vc]["is_new"]:
 					try:
 						assert(self.vehicles[vc]["action"]!=None)
 						assert(self.vehicles[vc]["state"]!=None)
+						if not self.vehicles[vc]["is_action_valid"]:
+							assert(self.vehicles[vc]["substitute_action"]!=None)
 					except Exception as e:
 						self.utils.log(str(e),type='err')
 						breakpoint()
 					
 					reward=self.get_reward(self.vehicles[vc]["time"],sim_time)
-					self.save_expirence(self.vehicles[vc]["state"],self.vehicles[vc]["action"],reward,next_state,done=False)
+					if self.vehicles[vc]["is_action_valid"]:
+						self.save_expirence(self.vehicles[vc]["state"],self.vehicles[vc]["action"],reward,next_state,done=False)
+					else:
+						self.save_expirence(self.vehicles[vc]["state"],self.vehicles[vc]["action"],-sys.maxsize,next_state=None,done=True)
+						self.save_expirence(self.vehicles[vc]["state"],self.vehicles[vc]["substitute_action"],reward,next_state,done=False)
+
 
 				try:
 					assert(next_state!=None)
@@ -149,26 +157,18 @@ class AR_SUMO_Environment(gym.Env):
 			for vc in self.get_exiting_avs():
 				assert(not self.vehicles[vc]["is_new"])
 				reward=self.get_reward(self.vehicles[vc]["time"],sim_time)
-				self.save_expirence(self.vehicles[vc]["state"],self.vehicles[vc]["action"],reward,next_state=None,done=True)
+
+				if self.vehicles[vc]["is_action_valid"]:
+					self.save_expirence(self.vehicles[vc]["state"],self.vehicles[vc]["action"],reward,next_state=None,done=True)
+				else:
+					self.save_expirence(self.vehicles[vc]["state"],self.vehicles[vc]["action"],-sys.maxsize,next_state=None,done=True)
+					self.save_expirence(self.vehicles[vc]["state"],self.vehicles[vc]["substitute_action"],reward,next_state=None,done=True)
+
 				self.compute_AVTT(vc,sim_time)
 				self.exit(vc)
 			# ----------------------------------------
 			return self.close(sim_time)
 
-		def get_random_action(self, vc_ID):
-			"""
-			return a random number between 1 and len(self.utils.get_out_edges(self.g)t_intersec_id(vc_ID)])
-			"""
-
-			if len(self.manual_drive)!=0:
-				self.current_step+=1
-				return self.manual_drive[self.current_step]
-
-			source = self.vehicles[vc_ID]["agent_id"]
-			assert len(self.utils.get_out_edges(source)) > 1 
-			action=random.choice(range(0, len(self.utils.get_out_edges(source))))
-			self.utils.log("action: " +str(action)+" chosen for vehicle: "+vc_ID+" out of "+str(len(self.utils.get_out_edges(source)))+" actions")
-			return action
 
 		def set_route(self,VCs,ACTs):
 			
@@ -178,7 +178,7 @@ class AR_SUMO_Environment(gym.Env):
 				agent_id=self.vehicles[vc]["agent_id"]
 				next_roads = self.utils.get_next_road_IDs(agent_id,ac)
 				current_road = self.vehicles[vc]["road"]
-				self.utils.log("agnet {} generated routing response {} for {}".format(self.vehicles[vc]["agent_id"],[current_road]+ next_roads,vc))
+				self.utils.log("agnet {} generated routing response {} for {}".format(agent_id,[current_road]+ next_roads,vc))
 
 				if self.TTSP:
 					self.utils.log("Routing mode TTSP. Action discarded.")
@@ -191,12 +191,33 @@ class AR_SUMO_Environment(gym.Env):
 
 				try:
 					traci.vehicle.setRoute(vc, [current_road]+ next_roads)
+					self.utils.log("there may be other reasons for failure of setRoute!",type='warn')
 					self.utils.log('Sucess! {0} route changed. current_road:{1}, next_road:{2})'.format(vc, current_road, next_roads))
+					self.vehicles[vc]["is_action_valid"]=True
 
 				except Exception as e:
-					self.utils.log(str(e),type='err')
-					breakpoint()
+					self.utils.log('Failed! Action {} is not valid @ road {}'.format(ac,current_road))
+					self.vehicles[vc]["is_action_valid"]=False
+					self.vehicles[vc]["substitute_action"]=self.get_subtitue_action(current_road,agent_id)
+					next_roads = self.utils.get_next_road_IDs(agent_id,self.vehicles[vc]["substitute_action"])
+					
+					try:
+						traci.vehicle.setRoute(vc, [current_road]+ next_roads)	
+						self.utils.log("agnet {} generated substitute routing response {} for {}".format(agent_id,[current_road]+ next_roads,vc))
+					except Exception as e:
+						self.log("error in setting the substitute route",type='err')
+						breakpoint()
+
+
 		
+		def get_subtitue_action(self, road_ID,agent_id):
+			"""
+			return a random number between 1 and len(self.utils.get_out_edges(self.g)t_intersec_id(vc_ID)])
+			"""
+			self.utils.log("I am assuming that each edge has only one lane",type='warn')
+			subs_edge=random.choice(traci.lane.getLinks(road_ID+"_0"))[0].split('_')[0]
+			return self.utils.get_edge_index_among_node_out_edges(subs_edge,agent_id)
+
 
 		def add_env_vc(self,vc,road,time,destination):
 			self.utils.log(vc+" entered simulation @ road: {}".format(road))
@@ -207,6 +228,8 @@ class AR_SUMO_Environment(gym.Env):
 				"road":None,
 				"agent_id":None,
 				"action":None,
+				"is_action_valid":None,
+				"substitute_action":None,
 				"reward":None,
 				"state":None,
 				"is_new":True
@@ -234,6 +257,8 @@ class AR_SUMO_Environment(gym.Env):
 		def exit(self, vc):
 			self.utils.log("{} exited.".format(vc))
 			self.vehicles.pop(vc)
+			traci.vehicle.remove(vc)
+			# breakpoint()
 		
 		def change_traffic_condition(self,time,vc_period,traffic_period):
 			if time%vc_period==0:

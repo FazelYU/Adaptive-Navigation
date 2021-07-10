@@ -30,7 +30,7 @@ class Base_Agent(object):
 
         self.lowest_possible_episode_score = self.get_lowest_possible_episode_score()
 
-        self.state_size =  int(self.get_state_size())
+        # self.state_size =  int(self.get_state_size())
         self.hyperparameters = config.hyperparameters
         self.average_score_required_to_win = self.get_score_required_to_win()
         self.rolling_score_window = self.get_trials()
@@ -45,7 +45,7 @@ class Base_Agent(object):
         self.visualise_results_boolean = config.visualise_individual_results
         self.turn_off_exploration = False
         gym.logger.set_level(40)  # stops it from printing an unnecessary warning
-        self.log_game_info()
+        # self.log_game_info()
         self.env_agent_dic=config.environment.utils.agent_dic
         # self.summ_writer = SummaryWriter()
 
@@ -81,7 +81,7 @@ class Base_Agent(object):
         if self.action_types == "DISCRETE": return self.environment.action_space.n
         else: return self.environment.action_space.shape[0]
 
-    def get_state_size(self):
+    def get_state_size(self,agent_id):
         """Gets the state_size for the gym env into the correct shape for a neural network"""
         # random_state = self.environment.reset()
         # if isinstance(random_state, dict):
@@ -89,7 +89,10 @@ class Base_Agent(object):
         #     return state_size
         # else:
         #     return random_state.size
-        return self.environment.state_size
+        return self.environment.utils.get_state_diminsion(agent_id)
+    def get_action_space_size(self,agent_id):
+
+        return self.env_agent_dic[agent_id][1]
 
     def get_score_required_to_win(self):
         """Gets average score required to win game"""
@@ -131,12 +134,12 @@ class Base_Agent(object):
         logger.addHandler(handler)
         return logger
 
-    def log_game_info(self):
-        """Logs info relating to the game"""
-        for ix, param in enumerate([self.environment_title, self.action_types, self.action_size, self.lowest_possible_episode_score,
-                      self.state_size, self.hyperparameters, self.average_score_required_to_win, self.rolling_score_window,
-                      self.device]):
-            self.logger.info("{} -- {}".format(ix, param))
+    # def log_game_info(self):
+    #     """Logs info relating to the game"""
+    #     for ix, param in enumerate([self.environment_title, self.action_types, self.action_size, self.lowest_possible_episode_score,
+    #                   self.state_size, self.hyperparameters, self.average_score_required_to_win, self.rolling_score_window,
+    #                   self.device]):
+    #         self.logger.info("{} -- {}".format(ix, param))
 
     def set_random_seeds(self, random_seed):
         """Sets all possible random seeds so results can be reproduced"""
@@ -368,31 +371,31 @@ class Base_Agent(object):
         for target_param, local_param in zip(target_model.parameters(), local_model.parameters()):
             target_param.data.copy_(tau*local_param.data + (1.0-tau)*target_param.data)
 
-    def create_NN(self, input_dim, output_dim, key_to_use=None, override_seed=None, hyperparameters=None):
-        """Creates a neural network for the agents to use"""
-        if hyperparameters is None: hyperparameters = self.hyperparameters
-        if key_to_use: hyperparameters = hyperparameters[key_to_use]
-        if override_seed: seed = override_seed
-        else: seed = self.config.seed
+    # def create_NN(self, input_dim, output_dim, key_to_use=None, override_seed=None, hyperparameters=None):
+    #     """Creates a neural network for the agents to use"""
+    #     if hyperparameters is None: hyperparameters = self.hyperparameters
+    #     if key_to_use: hyperparameters = hyperparameters[key_to_use]
+    #     if override_seed: seed = override_seed
+    #     else: seed = self.config.seed
 
-        default_hyperparameter_choices = {"output_activation": None, "hidden_activations": "relu", "dropout": 0.0,
-                                          "initialiser": "default", "batch_norm": False,
-                                          "columns_of_data_to_be_embedded": [],
-                                          "embedding_dimensions": [], "y_range": ()}
+    #     default_hyperparameter_choices = {"output_activation": None, "hidden_activations": "relu", "dropout": 0.0,
+    #                                       "initialiser": "default", "batch_norm": False,
+    #                                       "columns_of_data_to_be_embedded": [],
+    #                                       "embedding_dimensions": [], "y_range": ()}
 
-        for key in default_hyperparameter_choices:
-            if key not in hyperparameters.keys():
-                hyperparameters[key] = default_hyperparameter_choices[key]
+    #     for key in default_hyperparameter_choices:
+    #         if key not in hyperparameters.keys():
+    #             hyperparameters[key] = default_hyperparameter_choices[key]
 
-        return NN(input_dim=input_dim, layers_info=hyperparameters["linear_hidden_units"] + [output_dim],
-                  output_activation=hyperparameters["final_layer_activation"],
-                  batch_norm=hyperparameters["batch_norm"], dropout=hyperparameters["dropout"],
-                  hidden_activations=hyperparameters["hidden_activations"], initialiser=hyperparameters["initialiser"],
-                  columns_of_data_to_be_embedded=hyperparameters["columns_of_data_to_be_embedded"],
-                  embedding_dimensions=hyperparameters["embedding_dimensions"], y_range=hyperparameters["y_range"],
-                  random_seed=seed).to(self.device)
+    #     return NN(input_dim=input_dim, layers_info=hyperparameters["linear_hidden_units"] + [output_dim],
+    #               output_activation=hyperparameters["final_layer_activation"],
+    #               batch_norm=hyperparameters["batch_norm"], dropout=hyperparameters["dropout"],
+    #               hidden_activations=hyperparameters["hidden_activations"], initialiser=hyperparameters["initialiser"],
+    #               columns_of_data_to_be_embedded=hyperparameters["columns_of_data_to_be_embedded"],
+    #               embedding_dimensions=hyperparameters["embedding_dimensions"], y_range=hyperparameters["y_range"],
+    #               random_seed=seed).to(self.device)
 
-    def create_agent_dic(self, input_dim, key_to_use=None, override_seed=None, hyperparameters=None):
+    def create_agent_dic(self, key_to_use=None, override_seed=None, hyperparameters=None):
         """Creates a neural network for the agents to use
         env_agent_dic is a dictionary with the road-network lanes as keys and number of actions as values"""
         if hyperparameters is None: hyperparameters = self.hyperparameters
@@ -411,8 +414,8 @@ class Base_Agent(object):
 
         agent_dic={
         agent_id:{\
-            "NN":NN(input_dim=input_dim, 
-                    layers_info=hyperparameters["linear_hidden_units"] + [self.env_agent_dic[agent_id]],
+            "NN":NN(input_dim=self.get_state_size(agent_id), 
+                    layers_info=hyperparameters["linear_hidden_units"] + [self.get_action_space_size(agent_id)],
                     output_activation=hyperparameters["final_layer_activation"],
                     batch_norm=hyperparameters["batch_norm"], dropout=hyperparameters["dropout"],
                     hidden_activations=hyperparameters["hidden_activations"], initialiser=hyperparameters["initialiser"],

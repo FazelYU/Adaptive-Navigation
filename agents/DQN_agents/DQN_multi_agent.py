@@ -14,7 +14,7 @@ class DQN(Base_Agent):
     agent_name = "DQN"
     def __init__(self, config):
         Base_Agent.__init__(self, config)
-        self.agent_dic = self.create_agent_dic(input_dim=self.state_size)
+        self.agent_dic = self.create_agent_dic()
         self.exploration_strategy = Epsilon_Greedy_Exploration(config)
 
     def reset_game(self):

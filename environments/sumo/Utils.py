@@ -14,7 +14,7 @@ Constants = {
     "SUMO_CONFIG" : "./environments/sumo/networks/3x3/network.sumocfg", #path to your sumo config file
     "ROOT" : "./",
     "Network_XML" : "./environments/sumo/networks/3x3/3x3.net.xml",
-    'LOG' : True,
+    'LOG' : False,
     'WARNINGS': False,
     'WHERE':False,
     'Simulation_Delay' : '200'
@@ -45,7 +45,7 @@ class Utils(object):
         
         self.edge_ID_dic=self.create_edge_ID_dic()
         self.node_dic=self.create_node_dic()
-        self.agent_dic=self.create_agent_dic()
+        self.agent_dic=self.create_agent_dic()#{node:[len(in edges), len(out edges)]}
         self.agent_dic_index = {list(self.agent_dic)[idx]: idx for idx in range(len(self.agent_dic))}
         
         self.sink_edge_list=[self.get_edge_ID(edge) \
@@ -57,8 +57,8 @@ class Utils(object):
                         if self.network.graph.out_degree(edge[0])==1 and \
                         self.network.graph.in_degree(edge[0])==0
                         ]
-        self.sink_edge_list=['-gneE13']
-        self.source_edge_list=['gneE13']
+        # self.sink_edge_list=['gneE20']
+        # self.source_edge_list=['gneE9']
 
 
         self.sink_nodes_list=[self.get_edge_tail_node(sink_edge) for sink_edge in self.sink_edge_list]
@@ -66,39 +66,26 @@ class Utils(object):
         self.all_pairs_shortest_path= dict(nx.all_pairs_dijkstra_path_length(self.network.graph))
         self.sink_embed_dim=len(self.sink_nodes_list)
         self.network_embed_dim=0
-        self.state_dim=self.sink_embed_dim+self.network_embed_dim
+        # self.state_dim=self.sink_embed_dim+self.network_embed_dim
         self.induction_loops=traci.inductionloop.getIDList()
         self.sink_edge_induction_loops=self.get_sink_edge_induction_loops()
         self.transition_induction_loops=[il for il in self.induction_loops if il not in self.sink_edge_induction_loops]
 
-    def get_state(self,source,sink):
+    def get_state(self,source_edge,source_node,sink_node):
+        source_embed=[0]*self.agent_dic[source_node][0]
+        source_embed[self.get_edge_index_among_node_in_edges(source_edge,source_node)]=1
         dest_embed=[0]*len(self.sink_nodes_list)
-        dest_embed[self.sink_nodes_index[sink]]=1
-
-        embeding=dest_embed+self.get_network_state()
-        return {"agent_id": source,
+        dest_embed[self.sink_nodes_index[sink_node]]=1
+        embeding=source_embed+dest_embed+self.get_network_state_embeding()
+        return {"agent_id": source_node,
                 "embeding": embeding}
 
-    def get_network_state(self):
+    def get_network_state_embeding(self):
        return []
             # return[1]
-    # def get_state(self,origin,destination,vehicle_id):
-    #     reshaped_origin=self.res_road(origin)
-    #     reshaped_destination=self.res_road(destination)
 
-    #     one_hot_flow_type=[0]*self.Num_Flow_Types
-    #     flow_type=self.flow_types_dic[self.get_flow_id(vehicle_id)]
-    #     one_hot_flow_type[flow_type]=1
-    #     state=self.state2torch(reshaped_origin+reshaped_destination+one_hot_flow_type)
-
-    #     if self.embed_network:
-    #         network_embd=self.evolved_node_features.view(1,-1)
-    #         return torch.cat((state,network_embd),1)
-    #     else:
-    #         return state
-
-    def get_state_diminsion(self): 
-        return self.state_dim 
+    def get_state_diminsion(self,agent_id): 
+        return self.agent_dic[agent_id][0]+self.sink_embed_dim+self.network_embed_dim
     
     def get_flow_id(self,vehicle_id):
         splited=vehicle_id.split('_')
@@ -248,20 +235,22 @@ class Utils(object):
                                 the keys : intersection ids
                                 the values : list of out going roads that are connected to the intersection
         """    
-        node_dic={ \
-                    node: \
-                            [self.get_edge_ID(edge) \
-                            for edge in self.network.graph.out_edges(node)]\
+        node_dic={
+                    node: {
+                        "in":[self.get_edge_ID(edge) for edge in self.network.graph.in_edges(node)],
+                        "out":[self.get_edge_ID(edge) for edge in self.network.graph.out_edges(node)],
+                        }
                     for node in self.network.graph.nodes() \
                     if node!=None \
-                    }
+                }
         return node_dic
 
     def create_agent_dic(self):
         return {\
-                node: len(self.node_dic[node]) \
-                for node in self.node_dic if \
-                len(self.node_dic[node])>1\
+                node: [len(self.get_in_edges(node)),len(self.get_out_edges(node))] \
+                for node in self.network.graph.nodes() if \
+                node!=None and \
+                len(self.get_out_edges(node))>1\
         }
 
     def generate_random_trips(self,num_trips,num_vehiles_per_trip=None):
@@ -313,8 +302,11 @@ class Utils(object):
         return self.get_edge_path(action_edge_ID)
 
     def get_out_edges(self,node):
-        return self.node_dic[node]
-    
+        return self.node_dic[node]["out"]
+
+    def get_in_edges(self,node):
+        return self.node_dic[node]["in"]
+
     def get_edge_ID(self,edge):
         return self.network.graph.get_edge_data(*edge)['edge'].id
    
@@ -339,6 +331,12 @@ class Utils(object):
     
     def get_induction_loop_edge(self,inductionloop):
         return inductionloop.split('_')[1]
+
+    def get_edge_index_among_node_out_edges(self,edge_id,node_id):
+        return self.get_out_edges(node_id).index(edge_id)    
+
+    def get_edge_index_among_node_in_edges(self,edge_id,node_id):
+        return self.get_in_edges(node_id).index(edge_id)
     #helper-------------------------------------------------
 
     def log(self, log_str, type='info'):
