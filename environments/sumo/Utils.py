@@ -17,7 +17,7 @@ Constants = {
     'LOG' : False,
     'WARNINGS': False,
     'WHERE':False,
-    'Simulation_Delay' : '200'
+    'Simulation_Delay' : '0'
     }
 
 
@@ -61,7 +61,7 @@ class Utils(object):
         # self.source_edge_list=['gneE9']
 
 
-        self.sink_nodes_list=[self.get_edge_tail_node(sink_edge) for sink_edge in self.sink_edge_list]
+        self.sink_nodes_list=[self.get_edge_head_node(sink_edge) for sink_edge in self.sink_edge_list]
         self.sink_nodes_index={self.sink_nodes_list[idx]:idx for idx in range(len(self.sink_nodes_list))}
         self.all_pairs_shortest_path= dict(nx.all_pairs_dijkstra_path_length(self.network.graph))
         self.sink_embed_dim=len(self.sink_nodes_list)
@@ -268,33 +268,37 @@ class Utils(object):
             for j in range(0,num_vehiles_per_trip[i]):
                 traci.vehicle.add("vehicle_{}_{}".format(i,j),"trip_{}".format(i))
     
-    def generate_random_trip(self,id):
+    def generate_random_trip(self,sim_time):
         # source_edge='gneE19'
         source_edge=random.choice(self.source_edge_list)
         # sink_edge='gneE18'
         sink_edge=random.choice(self.sink_edge_list)
-        traci.route.add("trip_{}".format(id),[source_edge,sink_edge])
-        traci.vehicle.add("vehicle_{}".format(id),"trip_{}".format(id))
-        # traci.vehicle.setColor("vehicle_{}".format(id),(255,0,255))
-        # traci.vehicle.setShapeClass("vehicle_{}".format(id),"truck")
-        return "vehicle_{}".format(id),source_edge,self.get_edge_tail_node(sink_edge)
+        traci.route.add("trip_{}".format(sim_time),[source_edge,sink_edge])
+        traci.vehicle.add("vehicle_{}".format(sim_time),"trip_{}".format(sim_time))
+        deadline=4*self.get_shortest_path_time(self.get_edge_tail_node(source_edge),self.get_edge_head_node(sink_edge))+sim_time
+        # traci.vehicle.setColor("vehicle_{}".format(sim_time),(255,0,255))
+        # traci.vehicle.setShapeClass("vehicle_{}".format(sim_time),"truck")
+        return "vehicle_{}".format(sim_time),source_edge,self.get_edge_head_node(sink_edge),deadline+sim_time
 
     def get_destination(self,vc):
         route_tail=traci.vehicle.getRoute(vc)[-1]
-        return self.get_edge_tail_node(route_tail)
+        return self.get_edge_head_node(route_tail)
     
-    def get_edge_tail_node(self,edge):
+    def get_edge_head_node(self,edge):
         return self.edge_ID_dic[edge][1]
+
+    def get_edge_tail_node(self,edge):
+        return self.edge_ID_dic[edge][0]
 
     def get_edge_path(self,edgeID):
         """receives edge ID returns edge"""
         path=[edgeID]
-        while self.get_edge_tail_node(path[-1]) not in list(self.agent_dic):
-            path.append(self.get_out_edges(self.get_edge_tail_node(path[-1]))[0])
+        while self.get_edge_head_node(path[-1]) not in list(self.agent_dic):
+            path.append(self.get_out_edges(self.get_edge_head_node(path[-1]))[0])
         return path
 
-    def get_edge_path_tail_node(self,edge):
-        return self.get_edge_tail_node(self.get_edge_path(edge)[-1])
+    def get_edge_path_head_node(self,edge):
+        return self.get_edge_head_node(self.get_edge_path(edge)[-1])
   
 
     def get_next_road_IDs(self,node,action_edge_index):

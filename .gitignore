@@ -28,3 +28,4 @@ launch.json
 results/data_and_graphs/Cart_Pole_Results_Data.pkl
 results/data_and_graphs/Cart_Pole_Results_Graph.png
 environments/3x3/replays/
+*e1Detector*

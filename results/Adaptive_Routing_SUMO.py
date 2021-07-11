@@ -76,7 +76,7 @@ config.hyperparameters = {
     },
 
     "DQN_Agents": {
-        "linear_hidden_units": [3, 3],
+        "linear_hidden_units": [7, 7],
         "learning_rate": 0.01,
         "buffer_size": 10000,
         "batch_size": 64,

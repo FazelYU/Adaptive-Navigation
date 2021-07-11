@@ -60,11 +60,12 @@ class AR_SUMO_Environment(gym.Env):
 			self.manual_drive=[]
 			self.current_step=-1
 			self.cummulative_tt=0
-			self.cummulative_n_ex_v=0
+			self.cummulative_n_success_v=0
+			self.cummulative_n_failed_v=0
 			self.TTSPWRR=False
 			self.TTSP=False
-			self.log_data=True
-			if self.log_data:
+			self.should_log_data=True
+			if self.should_log_data:
 				self.summ_writer = SummaryWriter()
 						
 		def reset(self,episode,config):
@@ -117,17 +118,15 @@ class AR_SUMO_Environment(gym.Env):
 			self.refresh_exp()
 			self.refresh_trans()
 			# -------------------------------------------
+			for vc in traci.vehicle.getIDList():
+				if sim_time>self.vehicles[vc]["dead_line"]:
+					self.fail_routing(vc,sim_time)
 
-			self.transient_avs=self.get_transient_avs()
-			# if len(self.transient_avs)>0:
-			# 	breakpoint()
-
-			for vc in self.transient_avs:
+			for vc in self.get_transient_avs():
 				# self.add_to_next_trans_for_routing(vc)
 				road=traci.vehicle.getRoadID(vc)
-				agent_id=self.utils.get_edge_path_tail_node(road)			
+				agent_id=self.utils.get_edge_path_head_node(road)			
 				next_state=self.utils.get_state(road,agent_id,self.vehicles[vc]["destination"])
-				self.transient_avs_states.append(next_state)
 				
 				if not self.vehicles[vc]["is_new"]:
 					try:
@@ -143,7 +142,7 @@ class AR_SUMO_Environment(gym.Env):
 					if self.vehicles[vc]["is_action_valid"]:
 						self.save_expirence(self.vehicles[vc]["state"],self.vehicles[vc]["action"],reward,next_state,done=False)
 					else:
-						self.save_expirence(self.vehicles[vc]["state"],self.vehicles[vc]["action"],-sys.maxsize,next_state=None,done=True)
+						self.save_expirence(self.vehicles[vc]["state"],self.vehicles[vc]["action"],-10000,next_state=None,done=True)
 						self.save_expirence(self.vehicles[vc]["state"],self.vehicles[vc]["substitute_action"],reward,next_state,done=False)
 
 
@@ -151,8 +150,10 @@ class AR_SUMO_Environment(gym.Env):
 					assert(next_state!=None)
 				except Exception as e:
 					breakpoint()
-
-				self.update_env_vc_info(vc, sim_time,road,agent_id,next_state)	
+				
+				self.update_env_vc_info(vc, sim_time,road,agent_id,next_state)
+				self.transient_avs.append(vc)
+				self.transient_avs_states.append(next_state)
 
 			for vc in self.get_exiting_avs():
 				assert(not self.vehicles[vc]["is_new"])
@@ -161,11 +162,10 @@ class AR_SUMO_Environment(gym.Env):
 				if self.vehicles[vc]["is_action_valid"]:
 					self.save_expirence(self.vehicles[vc]["state"],self.vehicles[vc]["action"],reward,next_state=None,done=True)
 				else:
-					self.save_expirence(self.vehicles[vc]["state"],self.vehicles[vc]["action"],-sys.maxsize,next_state=None,done=True)
+					self.save_expirence(self.vehicles[vc]["state"],self.vehicles[vc]["action"],-10000,next_state=None,done=True)
 					self.save_expirence(self.vehicles[vc]["state"],self.vehicles[vc]["substitute_action"],reward,next_state=None,done=True)
 
-				self.compute_AVTT(vc,sim_time)
-				self.exit(vc)
+				self.success_routing(vc,sim_time)
 			# ----------------------------------------
 			return self.close(sim_time)
 
@@ -219,11 +219,12 @@ class AR_SUMO_Environment(gym.Env):
 			return self.utils.get_edge_index_among_node_out_edges(subs_edge,agent_id)
 
 
-		def add_env_vc(self,vc,road,time,destination):
+		def add_env_vc(self,vc,road,time,destination,dead_line):
 			self.utils.log(vc+" entered simulation @ road: {}".format(road))
 			self.vehicles[vc]={
 				"destination": destination,
 				"start_time":time,
+				"dead_line":dead_line,
 				"time": None,
 				"road":None,
 				"agent_id":None,
@@ -254,17 +255,28 @@ class AR_SUMO_Environment(gym.Env):
 			self.dones.append(done)
 			self.utils.log("S:{},A:{},R:{},NS:{},D:{}".format(state,action,reward,next_state,done))
 
-		def exit(self, vc):
+		def success_routing(self, vc,sim_time):
 			self.utils.log("{} exited.".format(vc))
+			self.cummulative_tt+=sim_time-self.vehicles[vc]["start_time"]
+			self.cummulative_n_success_v+=1
+			self.exit(vc)
+
+		def fail_routing(self,vc,time):
+			self.utils.log("Routing for {} failed @ time {}".format(vc,time))
+			self.cummulative_n_failed_v+=1
+			self.exit(vc)
+
+		def exit(self, vc):
 			self.vehicles.pop(vc)
-			traci.vehicle.remove(vc)
-			# breakpoint()
+			traci.vehicle.remove(vc)			
 		
 		def change_traffic_condition(self,time,vc_period,traffic_period):
+			if traci.vehicle.getIDCount()>10:
+				return
 			if time%vc_period==0:
 			# if time==0:
-				vid,road,destination=self.utils.generate_random_trip(time)
-				self.add_env_vc(vid,road,time,destination)
+				vid,road,destination,dead_line=self.utils.generate_random_trip(time)
+				self.add_env_vc(vid,road,time,destination,dead_line)
 			# if time%traffic_period==1:
 			# 	self.utils.log("speed --")
 			# 	traci.edge.setMaxSpeed('gneE6', 2)
@@ -272,20 +284,21 @@ class AR_SUMO_Environment(gym.Env):
 			# 	self.utils.log("speed ++")
 			# 	traci.edge.setMaxSpeed('gneE6', 14)
 		
-		def compute_AVTT(self,vc,sim_time):
-			self.cummulative_tt+=sim_time-self.vehicles[vc]["start_time"]
-			self.cummulative_n_ex_v+=1
 		
-		def log_AVTT(self):
-			self.summ_writer.add_scalar("AVTT:",self.cummulative_tt/self.cummulative_n_ex_v,self.episode_number)
+		def log_data(self):
+			# self.summ_writer.add_scalar("AVTT:",self.cummulative_tt/self.cummulative_n_success_v,self.episode_number)
+			self.summ_writer.add_scalar("Routing Succcess:",self.cummulative_n_success_v,self.episode_number)
+			self.summ_writer.add_scalar("Routing failure:",self.cummulative_n_failed_v,self.episode_number)
+			
 			self.cummulative_tt=0
-			self.cummulative_n_ex_v=0
+			self.cummulative_n_success_v=0
+			self.cummulative_n_failed_v=0
 
 		def close(self,sim_time):
 			if self.is_terminal(sim_time):
 				# self.summ_writer.close()
 				if self.log_data:
-					self.log_AVTT()
+					self.log_data()
 				return self.states,self.acts,self.next_states,self.rewds,self.dones,True
 			else:
 				return self.states,self.acts,self.next_states,self.rewds,self.dones,False
@@ -314,12 +327,12 @@ class AR_SUMO_Environment(gym.Env):
 		def get_transient_avs(self):
 			transient_avs=[]
 			for il in self.utils.transition_induction_loops:
-				transient_avs+=[vc for vc in traci.inductionloop.getLastStepVehicleIDs(il) if self.is_transient(vc)]
+				transient_avs+=[vc for vc in traci.inductionloop.getLastStepVehicleIDs(il) if vc in self.vehicles and self.is_transient(vc)]
 			return transient_avs
 		
 		def get_exiting_avs(self):
 			exiting_avs=[]
 			for il in self.utils.sink_edge_induction_loops:
-				exiting_avs+=[vc for vc in traci.inductionloop.getLastStepVehicleIDs(il) if vc in self.vehicles and self.utils.get_edge_tail_node(self.utils.get_induction_loop_edge(il))==self.vehicles[vc]['destination']]
+				exiting_avs+=[vc for vc in traci.inductionloop.getLastStepVehicleIDs(il) if vc in self.vehicles and self.utils.get_edge_head_node(self.utils.get_induction_loop_edge(il))==self.vehicles[vc]['destination']]
 			
 			return exiting_avs
