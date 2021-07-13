@@ -9,8 +9,10 @@ import networkx as nx
 
 
 Constants = {
+    "EXP":"3x3",
     "SUMO_PATH" : "/usr/share/sumo", #path to sumo in your system
     "SUMO_GUI_PATH" : "/usr/share/sumo/bin/sumo-gui", #path to sumo-gui bin in your system
+    "SUMO_SHELL_PATH":"/usr/share/sumo/bin/sumo",
     "SUMO_CONFIG" : "./environments/sumo/networks/3x3/network.sumocfg", #path to your sumo config file
     "ROOT" : "./",
     "Network_XML" : "./environments/sumo/networks/3x3/3x3.net.xml",

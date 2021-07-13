@@ -42,7 +42,7 @@ config.seed = 1
 # embedding_dimensions = [[num_possible_states, 20]]
 # print("Num possible states ", num_possible_states)
 
-config.num_episodes_to_run = 100
+config.num_episodes_to_run = 1000
 config.file_to_save_data_results = "Data_and_Graphs/Adaptive_Routing.pkl"
 config.file_to_save_results_graph = "Data_and_Graphs/Adaptive_Routing.png"
 config.show_solution_score = False
@@ -54,7 +54,9 @@ config.use_GPU = True
 config.overwrite_existing_results_file = True
 config.randomise_random_seed = True
 config.save_model = False
-
+config.exp_name="3x3"
+config.should_load_model=False
+config.should_save_model=True
 config.hyperparameters = {
     "GAT":{
     'num_of_epochs': 10000, 
@@ -76,6 +78,9 @@ config.hyperparameters = {
     },
 
     "DQN_Agents": {
+        "epsilon_decay_rate_denominator": config.num_episodes_to_run/100,
+        "stop_exploration_episode":config.num_episodes_to_run-5,
+        "random_episodes_to_run":0,
         "linear_hidden_units": [7, 7],
         "learning_rate": 0.01,
         "buffer_size": 10000,
@@ -87,9 +92,6 @@ config.hyperparameters = {
         "gradient_clipping_norm": 5,
         "update_every_n_steps": 1,
         "tau": 0.01,
-        "epsilon_decay_rate_denominator": 5,
-        "stop_exploration_episode":config.num_episodes_to_run-5,
-        "random_episodes_to_run":0,
         "discount_rate": 0.99,
         "learning_iterations": 1,
         "exploration_cycle_episodes_length": None,

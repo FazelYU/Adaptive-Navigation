@@ -23,32 +23,19 @@ class DQN(Base_Agent):
 
     def pick_action(self, states):
         """Uses the local Q network and an epsilon greedy policy to pick an action"""
-                                                                                    # PyTorch only accepts mini-batches and not single observations so we have to use unsqueeze to add
-                                                                                    # a "fake" dimension to make it a mini-batch rather than a single observation
-                                                                                    # TODO: batchify, room for optimization. needed for big flows
-        
+
         actions=[]
         for state in states:
-            if isinstance(state, np.int64) or isinstance(state, int): state = np.array([state])
-            # breakpoint()
-            # state = state.float().to(self.device)
+            # if isinstance(state, np.int64) or isinstance(state, int): state = np.array([state])
             agent_id=self.get_agent_id(state)
-            try:
-                assert(agent_id in self.env_agent_dic)
-            except:
-                breakpoint()
-
-            # if len(state.shape) < 2: state = state.unsqueeze(0)      # potential BUG       
             q_network_local=self.agent_dic[agent_id]["NN"]
+            embeding=torch.tensor(state['embeding'],dtype=torch.float).unsqueeze(0).to(self.device)
+            
             q_network_local.eval() #puts network in evaluation mode
             with torch.no_grad():
-                embeding=torch.tensor(state['embeding'],dtype=torch.float).unsqueeze(0).to(self.device)
-                # breakpoint()
-                
                 action_values = q_network_local(embeding)
             q_network_local.train() #puts network back in training mode
             
-            # TODO
             action = self.exploration_strategy.perturb_action_for_exploration_purposes({"action_values": action_values,
                                                                                     "turn_off_exploration": self.turn_off_exploration,
                                                                                     "episode_number": self.agent_dic[agent_id]["episode_number"]})
@@ -125,8 +112,6 @@ class DQN(Base_Agent):
                                                                                                         # max(1)[0]: value of the max in every row of the batch
                                                                                                         # max(1)[1]: index of the max in every row of the batch
         
-        
-
     def compute_q_values_for_current_states(self, rewards, Q_targets_next, dones):
         """Computes the q_values for current state we will use to create the loss to train the Q network"""
         # TODO: why (1-dones)?

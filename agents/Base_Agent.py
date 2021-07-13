@@ -25,8 +25,6 @@ class Base_Agent(object):
         self.environment = config.environment
         self.environment_title = self.get_environment_title()
         self.action_types = "DISCRETE" if self.environment.action_space.dtype == np.int64 else "CONTINUOUS"
-        self.action_size = int(self.get_action_size())
-        self.config.action_size = self.action_size
 
         self.lowest_possible_episode_score = self.get_lowest_possible_episode_score()
 
@@ -73,13 +71,6 @@ class Base_Agent(object):
         """Returns the lowest possible episode score you can get in an environment"""
         if self.environment_title == "Taxi": return -800
         return None
-
-    def get_action_size(self):
-        """Gets the action_size for the gym env into the correct shape for a neural network"""
-        if "overwrite_action_size" in self.config.__dict__: return self.config.overwrite_action_size
-        if "action_size" in self.environment.__dict__: return self.environment.action_size
-        if self.action_types == "DISCRETE": return self.environment.action_space.n
-        else: return self.environment.action_space.shape[0]
 
     def get_state_size(self,agent_id):
         """Gets the state_size for the gym env into the correct shape for a neural network"""
@@ -263,7 +254,16 @@ class Base_Agent(object):
         start = time.time()
 
         while self.env_episode_number < num_episodes:
+
+            if self.config.should_load_model and self.env_episode_number==0:
+                self.load_policies()
+                breakpoint()
+
+            if self.config.should_save_model and self.env_episode_number==num_episodes-1:
+                self.save_policies()
+
             try:
+                
                 self.run()
                 self.env_episode_number += 1
 
@@ -284,7 +284,7 @@ class Base_Agent(object):
 
         time_taken = time.time() - start
         if show_whether_achieved_goal: self.show_whether_achieved_goal()
-        if self.config.save_model: self.locally_save_policy()
+        if self.config.save_model: self.save_policies()
         # self.summ_writer.close()
         return self.game_full_episode_scores, self.rolling_results, time_taken
 
@@ -371,29 +371,6 @@ class Base_Agent(object):
         for target_param, local_param in zip(target_model.parameters(), local_model.parameters()):
             target_param.data.copy_(tau*local_param.data + (1.0-tau)*target_param.data)
 
-    # def create_NN(self, input_dim, output_dim, key_to_use=None, override_seed=None, hyperparameters=None):
-    #     """Creates a neural network for the agents to use"""
-    #     if hyperparameters is None: hyperparameters = self.hyperparameters
-    #     if key_to_use: hyperparameters = hyperparameters[key_to_use]
-    #     if override_seed: seed = override_seed
-    #     else: seed = self.config.seed
-
-    #     default_hyperparameter_choices = {"output_activation": None, "hidden_activations": "relu", "dropout": 0.0,
-    #                                       "initialiser": "default", "batch_norm": False,
-    #                                       "columns_of_data_to_be_embedded": [],
-    #                                       "embedding_dimensions": [], "y_range": ()}
-
-    #     for key in default_hyperparameter_choices:
-    #         if key not in hyperparameters.keys():
-    #             hyperparameters[key] = default_hyperparameter_choices[key]
-
-    #     return NN(input_dim=input_dim, layers_info=hyperparameters["linear_hidden_units"] + [output_dim],
-    #               output_activation=hyperparameters["final_layer_activation"],
-    #               batch_norm=hyperparameters["batch_norm"], dropout=hyperparameters["dropout"],
-    #               hidden_activations=hyperparameters["hidden_activations"], initialiser=hyperparameters["initialiser"],
-    #               columns_of_data_to_be_embedded=hyperparameters["columns_of_data_to_be_embedded"],
-    #               embedding_dimensions=hyperparameters["embedding_dimensions"], y_range=hyperparameters["y_range"],
-    #               random_seed=seed).to(self.device)
 
     def create_agent_dic(self, key_to_use=None, override_seed=None, hyperparameters=None):
         """Creates a neural network for the agents to use
@@ -478,9 +455,6 @@ class Base_Agent(object):
     def get_agent_id(self,state):
         return state["agent_id"]
 
-    def locally_save_policy(self):
-        """Saves the policy"""
-        torch.save(self.q_network_local.state_dict(), "Models/{}_local_network.pt".format(self.agent_name))
 
     def time_for_q_network_to_learn(self,agent_id):
         """Returns boolean indicating whether enough steps have been taken for learning to begin and there are
@@ -503,3 +477,14 @@ class Base_Agent(object):
         experiences = memory.sample()
         states, actions, rewards, next_states, dones = experiences
         return states, actions, rewards, next_states, dones
+
+    def save_policies(self):
+        """Saves the policy"""
+        for agent_id in self.agent_dic:
+            torch.save(self.agent_dic[agent_id]["NN"].state_dict(),"Models/{}/agent_{}_policy.pt".format(self.config.exp_name,agent_id))
+        # torch.save(self.q_network_local.state_dict(), "Models/{}_local_network.pt".format(self.agent_name))
+
+    def load_policies(self):
+        for agent_id in self.agent_dic:
+            self.agent_dic[agent_id]["NN"].load_state_dict(torch.load("Models/{}/agent_{}_policy.pt".format(self.config.exp_name,agent_id)))
+

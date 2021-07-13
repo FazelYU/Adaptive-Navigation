@@ -62,6 +62,7 @@ class AR_SUMO_Environment(gym.Env):
 			self.cummulative_tt=0
 			self.cummulative_n_success_v=0
 			self.cummulative_n_failed_v=0
+			self.cummulative_n_invalid_actions=0
 			self.TTSPWRR=False
 			self.TTSP=False
 			self.should_log_data=True
@@ -118,13 +119,19 @@ class AR_SUMO_Environment(gym.Env):
 			self.refresh_exp()
 			self.refresh_trans()
 			# -------------------------------------------
-			for vc in traci.vehicle.getIDList():
-				if sim_time>self.vehicles[vc]["dead_line"]:
-					self.fail_routing(vc,sim_time)
+			# for vc in traci.vehicle.getIDList():
+			# 	if sim_time>self.vehicles[vc]["dead_line"]:
+			# 		self.fail_routing(vc,sim_time)
 
 			for vc in self.get_transient_avs():
 				# self.add_to_next_trans_for_routing(vc)
 				road=traci.vehicle.getRoadID(vc)
+				try:
+					assert(road in self.utils.edge_ID_dic)
+				except:
+					self.utils.log("{} has entered an internal edge. Too late for making a routing decision".format(vc))
+					breakpoint()
+
 				agent_id=self.utils.get_edge_path_head_node(road)			
 				next_state=self.utils.get_state(road,agent_id,self.vehicles[vc]["destination"])
 				
@@ -142,7 +149,7 @@ class AR_SUMO_Environment(gym.Env):
 					if self.vehicles[vc]["is_action_valid"]:
 						self.save_expirence(self.vehicles[vc]["state"],self.vehicles[vc]["action"],reward,next_state,done=False)
 					else:
-						self.save_expirence(self.vehicles[vc]["state"],self.vehicles[vc]["action"],-10000,next_state=None,done=True)
+						self.save_expirence(self.vehicles[vc]["state"],self.vehicles[vc]["action"],10*reward,next_state,done=False)
 						self.save_expirence(self.vehicles[vc]["state"],self.vehicles[vc]["substitute_action"],reward,next_state,done=False)
 
 
@@ -162,7 +169,7 @@ class AR_SUMO_Environment(gym.Env):
 				if self.vehicles[vc]["is_action_valid"]:
 					self.save_expirence(self.vehicles[vc]["state"],self.vehicles[vc]["action"],reward,next_state=None,done=True)
 				else:
-					self.save_expirence(self.vehicles[vc]["state"],self.vehicles[vc]["action"],-10000,next_state=None,done=True)
+					self.save_expirence(self.vehicles[vc]["state"],self.vehicles[vc]["action"],100*reward,next_state=None,done=True)
 					self.save_expirence(self.vehicles[vc]["state"],self.vehicles[vc]["substitute_action"],reward,next_state=None,done=True)
 
 				self.success_routing(vc,sim_time)
@@ -197,26 +204,10 @@ class AR_SUMO_Environment(gym.Env):
 
 				except Exception as e:
 					self.utils.log('Failed! Action {} is not valid @ road {}'.format(ac,current_road))
-					self.vehicles[vc]["is_action_valid"]=False
-					self.vehicles[vc]["substitute_action"]=self.get_subtitue_action(current_road,agent_id)
-					next_roads = self.utils.get_next_road_IDs(agent_id,self.vehicles[vc]["substitute_action"])
-					
-					try:
-						traci.vehicle.setRoute(vc, [current_road]+ next_roads)	
-						self.utils.log("agnet {} generated substitute routing response {} for {}".format(agent_id,[current_road]+ next_roads,vc))
-					except Exception as e:
-						self.log("error in setting the substitute route",type='err')
-						breakpoint()
+					self.set_substitue_action(vc,current_road,agent_id)
 
 
 		
-		def get_subtitue_action(self, road_ID,agent_id):
-			"""
-			return a random number between 1 and len(self.utils.get_out_edges(self.g)t_intersec_id(vc_ID)])
-			"""
-			self.utils.log("I am assuming that each edge has only one lane",type='warn')
-			subs_edge=random.choice(traci.lane.getLinks(road_ID+"_0"))[0].split('_')[0]
-			return self.utils.get_edge_index_among_node_out_edges(subs_edge,agent_id)
 
 
 		def add_env_vc(self,vc,road,time,destination,dead_line):
@@ -269,9 +260,29 @@ class AR_SUMO_Environment(gym.Env):
 		def exit(self, vc):
 			self.vehicles.pop(vc)
 			traci.vehicle.remove(vc)			
+
+		def set_substitue_action(self,vc,current_road,agent_id):
+			self.vehicles[vc]["is_action_valid"]=False
+			self.vehicles[vc]["substitute_action"]=self.get_subtitue_action(current_road,agent_id)
+			next_roads = self.utils.get_next_road_IDs(agent_id,self.vehicles[vc]["substitute_action"])
+			self.cummulative_n_invalid_actions+=1
+			try:
+				traci.vehicle.setRoute(vc, [current_road]+ next_roads)	
+				self.utils.log("agnet {} generated substitute routing response {} for {}".format(agent_id,[current_road]+ next_roads,vc))
+			except Exception as e:
+				self.log("error in setting the substitute route",type='err')
+				breakpoint()
+
+		def get_subtitue_action(self, road_ID,agent_id):
+			"""
+			return a random number between 1 and len(self.utils.get_out_edges(self.g)t_intersec_id(vc_ID)])
+			"""
+			self.utils.log("I am assuming that each edge has only one lane",type='warn')
+			subs_edge=random.choice(traci.lane.getLinks(road_ID+"_0"))[0].split('_')[0]
+			return self.utils.get_edge_index_among_node_out_edges(subs_edge,agent_id)
 		
 		def change_traffic_condition(self,time,vc_period,traffic_period):
-			if traci.vehicle.getIDCount()>10:
+			if traci.vehicle.getIDCount()>15:
 				return
 			if time%vc_period==0:
 			# if time==0:
@@ -289,10 +300,12 @@ class AR_SUMO_Environment(gym.Env):
 			# self.summ_writer.add_scalar("AVTT:",self.cummulative_tt/self.cummulative_n_success_v,self.episode_number)
 			self.summ_writer.add_scalar("Routing Succcess:",self.cummulative_n_success_v,self.episode_number)
 			self.summ_writer.add_scalar("Routing failure:",self.cummulative_n_failed_v,self.episode_number)
+			self.summ_writer.add_scalar("Invalid Action:",self.cummulative_n_invalid_actions,self.episode_number)
 			
 			self.cummulative_tt=0
 			self.cummulative_n_success_v=0
 			self.cummulative_n_failed_v=0
+			self.cummulative_n_invalid_actions=0
 
 		def close(self,sim_time):
 			if self.is_terminal(sim_time):
