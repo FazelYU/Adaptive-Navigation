@@ -292,7 +292,11 @@ class Base_Agent(object):
         """Runs a step within a game including a learning step if required"""
         self.reset_game()
         while not self.done:
-            actions = self.pick_action(self.environment.transient_avs_states)
+            if self.config.routing_mode=="Q_routing":
+                actions = self.pick_action(self.environment.transient_avs_states)
+            else:
+                # creating dummy actions which will later be discarded by the environment
+                actions=[0]*len(self.environment.transient_avs_states)
             
             try:
                 assert(len(actions)==len(self.environment.transient_avs_states))
@@ -303,12 +307,12 @@ class Base_Agent(object):
             
             if num_new_exp==0:
                 continue
-            
-            self.save_experience()
 
-            for agent_id in self.agent_dic:
-                if self.time_for_q_network_to_learn(agent_id):
-                    self.learn(agent_id)
+            if self.config.routing_mode=="Q_routing":
+                self.save_experience()
+                for agent_id in self.agent_dic:
+                    if self.time_for_q_network_to_learn(agent_id):
+                        self.learn(agent_id)
             
     def conduct_action(self, actions):
         """Conducts an action in the environment"""
@@ -320,12 +324,7 @@ class Base_Agent(object):
     def save_experience(self):
         """Saves the recent experience to the memory buffer"""
         for state,action,reward,next_state,done in zip(self.mem_states,self.mem_actions,self.mem_rewards,self.mem_next_states,self.mem_done):
-            agent_id=self.get_agent_id(state)
-            try:
-                assert(agent_id in self.env_agent_dic)
-            except:
-                breakpoint()
-                
+            agent_id=self.get_agent_id(state)                
             experience = state, action, reward, next_state, done
             self.agent_dic[agent_id]["memory"].add_experience(*experience)
             self.agent_dic[agent_id]["new_exp_count"]+=1
@@ -388,7 +387,6 @@ class Base_Agent(object):
         for key in default_hyperparameter_choices:
             if key not in hyperparameters.keys():
                 hyperparameters[key] = default_hyperparameter_choices[key]
-
         agent_dic={
         agent_id:{\
             "NN":NN(input_dim=self.get_state_size(agent_id), 

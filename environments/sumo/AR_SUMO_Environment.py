@@ -13,15 +13,13 @@ from torch.utils.tensorboard import SummaryWriter
 class AR_SUMO_Environment(gym.Env):
 
 		environment_name = "Adaptive Routing SUMO"
-		def __init__(self,GAT,embed_network,Num_Flows,
-					skip_routing,random_trips, Max_Sim_Time,
-					 device, Log, rolling_window):
+		def __init__(self,config, device):
 			#create the road network
 			
-
+			self.config=config
 			self.init_traci()
 			self.network = RoadNetworkModel(Constants["ROOT"], Constants["Network_XML"])
-			self.utils=Utils(environment=self,network=self.network,Num_Flows=Num_Flows,device=device,GAT=GAT,embed_network=embed_network)
+			self.utils=Utils(environment=self,network=self.network,Num_Flows=1,device=device,GAT=config.GAT,embed_network=False)
 			# breakpoint()
 			# traci.edge.adaptTraveltime('gneE6',4*traci.edge.getTraveltime('gneE6'))
 
@@ -32,39 +30,35 @@ class AR_SUMO_Environment(gym.Env):
 			self.transient_avs=[]
 			
 			# -----------------------------------------------------
-			self.gat=GAT
+			self.gat=config.GAT
 			self.transient_avs_states=[]
 			self.states=[]
 			self.acts=[]
 			self.next_states=[]
 			self.rewds=[]
 			self.dones=[]
-			self.Max_Sim_Time=Max_Sim_Time
+			# self.Max_Sim_Time=Max_Sim_Time
 			self.device=device
 			self.lanes_dic={}
 
-			self.stochastic_actions_probability = 0
-			self.actions = set(range(3))
+			# self.stochastic_actions_probability = 0
+			# self.actions = set(range(3))
 			self.id = "Adaptive Routing"
 			self.action_space = spaces.Discrete(3)
 			# self.state_size=self.utils.get_state_diminsion()
 			self.seed()
-			self.reward_threshold = 0.0
-			self.trials = rolling_window
-			self.Log=Log
-			self.skip_routing=skip_routing
-			self.iteration=-1
-			self.random_trips=random_trips
-			self.embed_network=embed_network
-			# self.manual_drive=[1,0,2,0,2,0]
-			self.manual_drive=[]
+			self.reward_threshold = -10000
+			self.trials = 10
+			# self.Log=Log
+			# self.skip_routing=skip_routing
+			# self.iteration=-1
+			# self.random_trips=random_trips
+			# self.embed_network=embed_network
 			self.current_step=-1
 			self.cummulative_tt=0
 			self.cummulative_n_success_v=0
 			self.cummulative_n_failed_v=0
 			self.cummulative_n_invalid_actions=0
-			self.TTSPWRR=False
-			self.TTSP=False
 			self.should_log_data=True
 			if self.should_log_data:
 				self.summ_writer = SummaryWriter()
@@ -100,7 +94,7 @@ class AR_SUMO_Environment(gym.Env):
 		def step(self,actions=[]):
 			sim_time=traci.simulation.getTime()
 			self.utils.log("sim_time:{} ".format(sim_time))
-			self.change_traffic_condition(sim_time,50,400)
+			self.change_traffic_condition(sim_time)
 			# ------------------------------------------
 			# actions=[self.get_random_action(trans_vehicle) for trans_vehicle in self.transient_avs]				
 			try:
@@ -112,8 +106,7 @@ class AR_SUMO_Environment(gym.Env):
 			#-------------------------------------------- 
 			traci.simulationStep()
 
-			if self.embed_network:
-				self.utils.update_and_evolve_node_features()
+				# self.utils.update_and_evolve_node_features()
 			# -------------------------------------------
 
 			self.refresh_exp()
@@ -146,10 +139,22 @@ class AR_SUMO_Environment(gym.Env):
 						breakpoint()
 					
 					reward=self.get_reward(self.vehicles[vc]["time"],sim_time)
+
+					# try:
+					# 	if not self.vehicles[vc]["is_action_valid"]:
+					# 		assert(self.vehicles[vc]["substitute_action"]<self.utils.agent_dic[agent_id][1])
+					# 	assert(self.vehicles[vc]["action"]<self.utils.agent_dic[agent_id][1])
+					# except Exception as e:
+					# 	breakpoint()
+
 					if self.vehicles[vc]["is_action_valid"]:
 						self.save_expirence(self.vehicles[vc]["state"],self.vehicles[vc]["action"],reward,next_state,done=False)
 					else:
-						self.save_expirence(self.vehicles[vc]["state"],self.vehicles[vc]["action"],10*reward,next_state,done=False)
+						try:
+							assert(self.vehicles[vc]["action"]<self.utils.agent_dic[self.vehicles[vc]["state"]['agent_id']][1])
+						except Exception as e:
+							breakpoint()
+						self.save_expirence(self.vehicles[vc]["state"],self.vehicles[vc]["action"],100*reward,next_state,done=False)
 						self.save_expirence(self.vehicles[vc]["state"],self.vehicles[vc]["substitute_action"],reward,next_state,done=False)
 
 
@@ -169,7 +174,7 @@ class AR_SUMO_Environment(gym.Env):
 				if self.vehicles[vc]["is_action_valid"]:
 					self.save_expirence(self.vehicles[vc]["state"],self.vehicles[vc]["action"],reward,next_state=None,done=True)
 				else:
-					self.save_expirence(self.vehicles[vc]["state"],self.vehicles[vc]["action"],100*reward,next_state=None,done=True)
+					self.save_expirence(self.vehicles[vc]["state"],self.vehicles[vc]["action"],10*reward,next_state=None,done=True)
 					self.save_expirence(self.vehicles[vc]["state"],self.vehicles[vc]["substitute_action"],reward,next_state=None,done=True)
 
 				self.success_routing(vc,sim_time)
@@ -182,16 +187,24 @@ class AR_SUMO_Environment(gym.Env):
 			for vc, ac in zip(VCs, ACTs):
 				assert(ac!=None)
 				self.vehicles[vc]["action"]=ac
+				self.vehicles[vc]["substitute_action"]=None
+				self.vehicles[vc]["is_action_valid"]=True
 				agent_id=self.vehicles[vc]["agent_id"]
+
+				try:
+					assert(self.vehicles[vc]["action"]<self.utils.agent_dic[agent_id][1])
+				except Exception as e:
+					breakpoint()
+
 				next_roads = self.utils.get_next_road_IDs(agent_id,ac)
 				current_road = self.vehicles[vc]["road"]
 				self.utils.log("agnet {} generated routing response {} for {}".format(agent_id,[current_road]+ next_roads,vc))
 
-				if self.TTSP:
+				if self.config.routing_mode=="TTSP":
 					self.utils.log("Routing mode TTSP. Action discarded.")
 					continue
 
-				if self.TTSPWRR:
+				if self.config.routing_mode=="TTSPWRR":
 					self.utils.log("Routing mode TTSPWRR. Action discarded.")
 					traci.vehicle.rerouteTraveltime(vc)
 					continue
@@ -200,7 +213,6 @@ class AR_SUMO_Environment(gym.Env):
 					traci.vehicle.setRoute(vc, [current_road]+ next_roads)
 					self.utils.log("there may be other reasons for failure of setRoute!",type='warn')
 					self.utils.log('Sucess! {0} route changed. current_road:{1}, next_road:{2})'.format(vc, current_road, next_roads))
-					self.vehicles[vc]["is_action_valid"]=True
 
 				except Exception as e:
 					self.utils.log('Failed! Action {} is not valid @ road {}'.format(ac,current_road))
@@ -239,6 +251,7 @@ class AR_SUMO_Environment(gym.Env):
 			return last_time-current_time
 		
 		def save_expirence(self,state,action,reward,next_state,done):
+
 			self.states.append(state)
 			self.acts.append(action)
 			self.rewds.append(reward)
@@ -264,6 +277,10 @@ class AR_SUMO_Environment(gym.Env):
 		def set_substitue_action(self,vc,current_road,agent_id):
 			self.vehicles[vc]["is_action_valid"]=False
 			self.vehicles[vc]["substitute_action"]=self.get_subtitue_action(current_road,agent_id)
+			try:
+				assert(self.vehicles[vc]["substitute_action"]<self.utils.agent_dic[agent_id][1])
+			except Exception as e:
+				breakpoint()
 			next_roads = self.utils.get_next_road_IDs(agent_id,self.vehicles[vc]["substitute_action"])
 			self.cummulative_n_invalid_actions+=1
 			try:
@@ -279,28 +296,26 @@ class AR_SUMO_Environment(gym.Env):
 			"""
 			self.utils.log("I am assuming that each edge has only one lane",type='warn')
 			subs_edge=random.choice(traci.lane.getLinks(road_ID+"_0"))[0].split('_')[0]
-			return self.utils.get_edge_index_among_node_out_edges(subs_edge,agent_id)
+			subs_act=self.utils.get_edge_index_among_node_out_edges(subs_edge,agent_id)
+			
+			return subs_act
 		
-		def change_traffic_condition(self,time,vc_period,traffic_period):
-			if traci.vehicle.getIDCount()>15:
-				return
-			if time%vc_period==0:
-			# if time==0:
+		def change_traffic_condition(self,time):
+			if time%self.config.traffic_period==1:
+				self.utils.set_network_state(epsilon=1)
+
+			if time%self.config.vc_period==1 and traci.vehicle.getIDCount()<self.config.Max_number_vc:
 				vid,road,destination,dead_line=self.utils.generate_random_trip(time)
 				self.add_env_vc(vid,road,time,destination,dead_line)
-			# if time%traffic_period==1:
-			# 	self.utils.log("speed --")
-			# 	traci.edge.setMaxSpeed('gneE6', 2)
-			# if time%traffic_period==math.floor(traffic_period/2)+1:
-			# 	self.utils.log("speed ++")
-			# 	traci.edge.setMaxSpeed('gneE6', 14)
 		
 		
 		def log_data(self):
-			# self.summ_writer.add_scalar("AVTT:",self.cummulative_tt/self.cummulative_n_success_v,self.episode_number)
-			self.summ_writer.add_scalar("Routing Succcess:",self.cummulative_n_success_v,self.episode_number)
-			self.summ_writer.add_scalar("Routing failure:",self.cummulative_n_failed_v,self.episode_number)
-			self.summ_writer.add_scalar("Invalid Action:",self.cummulative_n_invalid_actions,self.episode_number)
+			if self.cummulative_n_success_v!=0:
+				self.summ_writer.add_scalar("AVTT:",self.cummulative_tt/self.cummulative_n_success_v,self.episode_number)
+			# self.summ_writer.add_scalar("Routing Succcess:",self.cummulative_n_success_v,self.episode_number)
+			# self.summ_writer.add_scalar("Routing failure:",self.cummulative_n_failed_v,self.episode_number)
+			if self.config.routing_mode=="Q_routing":
+				self.summ_writer.add_scalar("Invalid Action:",self.cummulative_n_invalid_actions,self.episode_number)
 			
 			self.cummulative_tt=0
 			self.cummulative_n_success_v=0
@@ -322,7 +337,7 @@ class AR_SUMO_Environment(gym.Env):
 
 			"""
 			# traci.simulation.getMinExpectedNumber() == 0 or
-			return sim_time%4000==3999
+			return sim_time%self.config.episode_period==self.config.episode_period-1
 
 		def init_traci(self):
 			sys.path.append(os.path.join(Constants['SUMO_PATH'], os.sep, 'tools'))

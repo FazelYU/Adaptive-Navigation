@@ -38,8 +38,13 @@ class DQN(Base_Agent):
             
             action = self.exploration_strategy.perturb_action_for_exploration_purposes({"action_values": action_values,
                                                                                     "turn_off_exploration": self.turn_off_exploration,
-                                                                                    "episode_number": self.agent_dic[agent_id]["episode_number"]})
             
+                                                                                    "episode_number": self.agent_dic[agent_id]["episode_number"]})
+            try:
+                assert(action<self.get_action_space_size(agent_id))                
+            except Exception as e:
+                breakpoint()
+                
             self.logger.info("Q values {} -- Action chosen {}".format(action_values, action))
             actions.append(action)   
         return actions
@@ -120,6 +125,8 @@ class DQN(Base_Agent):
 
     def compute_expected_q_values(self, agent_id, states, actions):
         """Computes the expected q_values we will use to create the loss to train the Q network"""
-        
-        Q_expected = self.agent_dic[agent_id]["NN"](states).gather(1, actions.long()) #must convert actions to long so can be used as index
+        try:
+            Q_expected = self.agent_dic[agent_id]["NN"](states).gather(1, actions.long()) #must convert actions to long so can be used as index
+        except Exception as e:
+            breakpoint()
         return Q_expected

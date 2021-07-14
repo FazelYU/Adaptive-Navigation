@@ -13,9 +13,9 @@ Constants = {
     "SUMO_PATH" : "/usr/share/sumo", #path to sumo in your system
     "SUMO_GUI_PATH" : "/usr/share/sumo/bin/sumo-gui", #path to sumo-gui bin in your system
     "SUMO_SHELL_PATH":"/usr/share/sumo/bin/sumo",
-    "SUMO_CONFIG" : "./environments/sumo/networks/3x3/network.sumocfg", #path to your sumo config file
+    "SUMO_CONFIG" : "./environments/sumo/networks/4x3/network.sumocfg", #path to your sumo config file
     "ROOT" : "./",
-    "Network_XML" : "./environments/sumo/networks/3x3/3x3.net.xml",
+    "Network_XML" : "./environments/sumo/networks/4x3/4x3.net.xml",
     'LOG' : False,
     'WARNINGS': False,
     'WHERE':False,
@@ -67,11 +67,24 @@ class Utils(object):
         self.sink_nodes_index={self.sink_nodes_list[idx]:idx for idx in range(len(self.sink_nodes_list))}
         self.all_pairs_shortest_path= dict(nx.all_pairs_dijkstra_path_length(self.network.graph))
         self.sink_embed_dim=len(self.sink_nodes_list)
-        self.network_embed_dim=0
         # self.state_dim=self.sink_embed_dim+self.network_embed_dim
         self.induction_loops=traci.inductionloop.getIDList()
         self.sink_edge_induction_loops=self.get_sink_edge_induction_loops()
         self.transition_induction_loops=[il for il in self.induction_loops if il not in self.sink_edge_induction_loops]
+
+        self.network_state=[]
+        self.dynamic_edges={
+        "gneE25":[10,5],
+        "gneE2":[10,5],
+
+        "gneE26":[15,1],
+        "gneE9":[15,1],
+
+        "gneE27":[10,5],
+        "-gneE5":[10,5],
+        }
+        self.network_embed_dim=sum([len(self.dynamic_edges[edge]) for edge in self.dynamic_edges])
+        
 
     def get_state(self,source_edge,source_node,sink_node):
         source_embed=[0]*self.agent_dic[source_node][0]
@@ -79,12 +92,35 @@ class Utils(object):
         dest_embed=[0]*len(self.sink_nodes_list)
         dest_embed[self.sink_nodes_index[sink_node]]=1
         embeding=source_embed+dest_embed+self.get_network_state_embeding()
+        try:
+            assert(len(embeding)==self.get_state_diminsion(source_node))
+        except Exception as e:
+            breakpoint()
+            
         return {"agent_id": source_node,
                 "embeding": embeding}
 
     def get_network_state_embeding(self):
-       return []
+        try:
+            assert(self.network_state!=[])
+        except Exception as e:
+            breakpoint()
+        
+        return self.network_state
             # return[1]
+    def set_network_state(self,epsilon):
+        self.network_state=[]
+        for edge in self.dynamic_edges:
+            if random.random()>epsilon:
+                continue
+
+            size=len(self.dynamic_edges[edge])
+            index=random.choice(range(0,size))
+            edge_state=[0]*size
+            edge_state[index]=1
+            self.network_state+=edge_state
+            traci.edge.setMaxSpeed(edge,self.dynamic_edges[edge][index])
+
 
     def get_state_diminsion(self,agent_id): 
         return self.agent_dic[agent_id][0]+self.sink_embed_dim+self.network_embed_dim

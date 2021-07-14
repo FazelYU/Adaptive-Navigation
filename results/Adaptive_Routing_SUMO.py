@@ -41,8 +41,18 @@ config.seed = 1
 # num_possible_states =config.environment.utils.get_state_diminsion()
 # embedding_dimensions = [[num_possible_states, 20]]
 # print("Num possible states ", num_possible_states)
-
+config.use_GPU = True
+config.exp_name="4x3"
+config.should_load_model=False
+config.should_save_model=True
 config.num_episodes_to_run = 1000
+config.vc_period=5
+config.traffic_period=100
+config.Max_number_vc=40
+config.episode_period=4000
+routing_modes=["Q_routing","TTSPWRR","TTSP"]
+config.routing_mode=routing_modes[0]
+
 config.file_to_save_data_results = "Data_and_Graphs/Adaptive_Routing.pkl"
 config.file_to_save_results_graph = "Data_and_Graphs/Adaptive_Routing.png"
 config.show_solution_score = False
@@ -50,13 +60,9 @@ config.visualise_individual_results = False
 config.visualise_overall_agent_results = True
 config.standard_deviation_results = 1.0
 config.runs_per_agent = 1
-config.use_GPU = True
 config.overwrite_existing_results_file = True
 config.randomise_random_seed = True
-config.save_model = False
-config.exp_name="3x3"
-config.should_load_model=False
-config.should_save_model=True
+config.save_model = True
 config.hyperparameters = {
     "GAT":{
     'num_of_epochs': 10000, 
@@ -79,9 +85,9 @@ config.hyperparameters = {
 
     "DQN_Agents": {
         "epsilon_decay_rate_denominator": config.num_episodes_to_run/100,
-        "stop_exploration_episode":config.num_episodes_to_run-5,
+        "stop_exploration_episode":config.num_episodes_to_run-10,
         "random_episodes_to_run":0,
-        "linear_hidden_units": [7, 7],
+        "linear_hidden_units": [15,10,7],
         "learning_rate": 0.01,
         "buffer_size": 10000,
         "batch_size": 64,
@@ -113,8 +119,9 @@ gat = GAT(
 
 gat.train()
 config.GAT_parameters=gat.parameters()
+config.GAT=gat
 
-config.environment = envm(GAT=gat, embed_network=False ,Num_Flows=1,skip_routing=[],random_trips=True,Max_Sim_Time=600,device=device,Log=True,rolling_window=10)
+config.environment = envm(config,device=device)
 
 if __name__== '__main__':
     AGENTS = [DQN] #DIAYN] # A3C] #SNN_HRL] #, DDQN]
