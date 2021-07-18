@@ -17,7 +17,7 @@ class AR_SUMO_Environment(gym.Env):
 			#create the road network
 			
 			self.config=config
-			self.init_traci()
+			self.init_traci()		
 			self.network = RoadNetworkModel(Constants["ROOT"], Constants["Network_XML"])
 			self.utils=Utils(environment=self,network=self.network,Num_Flows=1,device=device,GAT=config.GAT,embed_network=False)
 			# breakpoint()
