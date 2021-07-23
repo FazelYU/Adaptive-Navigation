@@ -293,13 +293,13 @@ class Base_Agent(object):
         self.reset_game()
         while not self.done:
             if self.config.routing_mode=="Q_routing":
-                actions = self.pick_action(self.environment.transient_avs_states)
+                actions = self.pick_action(self.environment.get_routing_queries())
             else:
                 # creating dummy actions which will later be discarded by the environment
-                actions=[0]*len(self.environment.transient_avs_states)
+                actions=[0]*len(self.environment.get_routing_queries())
             
             try:
-                assert(len(actions)==len(self.environment.transient_avs_states))
+                assert(len(actions)==len(self.environment.get_routing_queries()))
             except Exception as e:
                 breakpoint()
 
@@ -451,7 +451,8 @@ class Base_Agent(object):
             to_model.data.copy_(from_model.data.clone())
 
     def get_agent_id(self,state):
-        return state["agent_id"]
+        agent_id=state["agent_id"]
+        return agent_id
 
 
     def time_for_q_network_to_learn(self,agent_id):

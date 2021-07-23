@@ -48,6 +48,16 @@ class RoadNetworkModel():
 
         self.add_custom_system("Entire network", self.edges.keys())
 
+        self.edge_ID_dic=self.create_edge_ID_dic()
+        for edge in self.edge_ID_dic:
+            try:
+                assert(len(self.get_edge_connections(edge))>0)
+            except:
+                breakpoint()
+        self.node_dic=self.create_node_dic()
+        
+        self.all_pairs_shortest_path= dict(nx.all_pairs_dijkstra_path_length(self.graph))
+
 
     def read_model(self, filename):
         """Parse a road network model from xml format to dictionary."""
@@ -82,7 +92,6 @@ class RoadNetworkModel():
         self.origBoundary = [float(coord) for coord in
             root.findall('location')[0].attrib['origBoundary'].split(',')]
         
-
     def construct_graph(self):
         """Create a directed graph representation fo the system."""
         self.graph = nx.DiGraph([(edge.from_id, edge.to_id, {'edge': edge, 'weight':traci.edge.getTraveltime(edge.id)})
@@ -90,7 +99,6 @@ class RoadNetworkModel():
             for edge in self.edges.values()])
         
         self.connectionGraph = nx.DiGraph([(connection.fromEdge, connection.toEdge, {'connection' : connection}) for connection in self.connections])
-
 
     def get_paths(self, G, excluded_types={}):
         """Get all simple paths from entrances to exits of a given graph."""
@@ -149,7 +157,6 @@ class RoadNetworkModel():
         # return flattenned list of paths, no longer groupped by route
         return paths
 
-        
     def get_path_systems(self, paths):
         """Construct path system objects based on a set of paths."""
 
@@ -177,7 +184,6 @@ class RoadNetworkModel():
 
         return path_systems
 
-
     def add_custom_system(self, name, edges):
         """Add a user-created multi-edge system to the model."""
 
@@ -186,3 +192,48 @@ class RoadNetworkModel():
                 (self.edge_systems[edge_id] for edge_id in edges), name)
 
         self.custom_systems[system.id] = system
+
+    def create_edge_ID_dic(self):
+        edge_ID_dic={self.get_edge_ID(edge): edge 
+        for edge in self.graph.edges() if edge != (None,None)}
+        return edge_ID_dic
+
+    def get_edge_ID(self,edge):
+        return self.graph.get_edge_data(*edge)['edge'].id
+   
+    def get_edge(self,edgeID):
+        return self.edge_ID_dic[edgeID]
+
+    def create_node_dic(self):
+        """
+        input: void
+        return: a dictionary for all intersections in the map: 
+                                the keys : intersection ids
+                                the values : list of out going roads that are connected to the intersection
+        """    
+        node_dic={
+                    node: {
+                        "in":[self.get_edge_ID(edge) for edge in self.graph.in_edges(node)],
+                        "out":[self.get_edge_ID(edge) for edge in self.graph.out_edges(node)],
+                        }
+                    for node in self.graph.nodes() \
+                    if node!=None \
+                }
+        return node_dic
+
+    def get_out_edges(self,node):
+        return self.node_dic[node]["out"]
+
+    def get_in_edges(self,node):
+        return self.node_dic[node]["in"]
+    
+    def get_edge_connections(self,edge):
+        return list(self.connectionGraph.out_edges(edge))
+
+    def get_edge_head_node(self,edge):
+        return self.edge_ID_dic[edge][1]
+
+    def get_edge_tail_node(self,edge):
+        return self.edge_ID_dic[edge][0]
+
+

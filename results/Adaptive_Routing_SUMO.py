@@ -87,7 +87,7 @@ config.hyperparameters = {
         "epsilon_decay_rate_denominator": config.num_episodes_to_run/100,
         "stop_exploration_episode":config.num_episodes_to_run-10,
         "random_episodes_to_run":0,
-        "linear_hidden_units": [15,10,7],
+        "linear_hidden_units": [3,3],
         "learning_rate": 0.01,
         "buffer_size": 10000,
         "batch_size": 64,
