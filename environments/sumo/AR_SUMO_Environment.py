@@ -106,7 +106,8 @@ class AR_SUMO_Environment(gym.Env):
 				assert(traci.simulation.getStartingTeleportNumber()==0)
 				# assert(traci.simulation.getArrivedNumber()==0)
 			except Exception as e:
-				breakpoint()
+				self.utils.log("{} Telepoting Vehicle Found!".format(traci.simulation.getStartingTeleportNumber()))
+				# breakpoint()
 
 				# self.utils.update_and_evolve_node_features()
 			# -------------------------------------------
@@ -309,19 +310,19 @@ class AR_SUMO_Environment(gym.Env):
 			self.vehicles[vc]["state"]=state
 			self.vehicles[vc]["is_new"]=False
 
-		def set_routing_response(self,vc,action):
-			try:
-				assert(action<self.utils.agent_dic[agent_id][1])
-			except Exception as e:
-				breakpoint()
-			self.vehicles[vc]["action"]=action
+		# def set_routing_response(self,vc,action):
+		# 	try:
+		# 		assert(action<self.utils.agent_dic[agent_id][1])
+		# 	except Exception as e:
+		# 		breakpoint()
+		# 	self.vehicles[vc]["action"]=action
 
-		def set_routing_sub_response(self,vc,sub_action):
-			try:
-				assert(sub_action<self.utils.agent_dic[agent_id][1])
-			except Exception as e:
-				breakpoint()
-			self.vehicles[vc]["substitute_action"]=sub_action
+		# def set_routing_sub_response(self,vc,sub_action):
+		# 	try:
+		# 		assert(sub_action<self.utils.agent_dic[agent_id][1])
+		# 	except Exception as e:
+		# 		breakpoint()
+		# 	self.vehicles[vc]["substitute_action"]=sub_action
 		
 		def get_reward(self,last_time,current_time):
 			return last_time-current_time
@@ -401,17 +402,18 @@ class AR_SUMO_Environment(gym.Env):
 
 
 		def get_queries(self):
-			routing_queries=[]
-			exiting_queries=[]
+			routing_queries=set()
+			exiting_queries=set()
+			self.utils.log("a vehicle can be detected twice in a single timestep!",type='warn')
 
 			for il in self.utils.induction_loops:
 				for vc in traci.inductionloop.getLastStepVehicleIDs(il):
 					if self.has_exited(vc) or self.has_transited(vc):
 						continue
 					if self.has_arrived(il,vc):
-						exiting_queries.append(vc)
+						exiting_queries.add(vc)
 					else:
-						routing_queries.append(vc)
+						routing_queries.add(vc)
 			return routing_queries,exiting_queries
 		
 		def has_exited(self,vc):
