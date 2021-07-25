@@ -41,7 +41,7 @@ config.seed = 1
 # num_possible_states =config.environment.utils.get_state_diminsion()
 # embedding_dimensions = [[num_possible_states, 20]]
 # print("Num possible states ", num_possible_states)
-config.use_GPU = True
+config.use_GPU = False
 config.exp_name="4x3"
 config.should_load_model=False
 config.should_save_model=True

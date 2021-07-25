@@ -40,10 +40,6 @@ class DQN(Base_Agent):
                                                                                     "turn_off_exploration": self.turn_off_exploration,
             
                                                                                     "episode_number": self.agent_dic[agent_id]["episode_number"]})
-            try:
-                assert(action<self.get_action_space_size(agent_id))                
-            except Exception as e:
-                breakpoint()
                 
             self.logger.info("Q values {} -- Action chosen {}".format(action_values, action))
             actions.append(action)   

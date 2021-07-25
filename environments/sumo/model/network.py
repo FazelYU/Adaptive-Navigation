@@ -49,6 +49,7 @@ class RoadNetworkModel():
         self.add_custom_system("Entire network", self.edges.keys())
 
         self.edge_ID_dic=self.create_edge_ID_dic()
+        self.edge_connection_dic=self.create_edge_connection_dic()
         for edge in self.edge_ID_dic:
             try:
                 assert(len(self.get_edge_connections(edge))>0)
@@ -198,6 +199,10 @@ class RoadNetworkModel():
         for edge in self.graph.edges() if edge != (None,None)}
         return edge_ID_dic
 
+    def create_edge_connection_dic(self):
+        return {edge: [connection[1] for connection in self.connectionGraph.out_edges(edge)] 
+        for edge in self.edge_ID_dic}
+
     def get_edge_ID(self,edge):
         return self.graph.get_edge_data(*edge)['edge'].id
    
@@ -228,7 +233,7 @@ class RoadNetworkModel():
         return self.node_dic[node]["in"]
     
     def get_edge_connections(self,edge):
-        return list(self.connectionGraph.out_edges(edge))
+        return self.edge_connection_dic[edge]
 
     def get_edge_head_node(self,edge):
         return self.edge_ID_dic[edge][1]

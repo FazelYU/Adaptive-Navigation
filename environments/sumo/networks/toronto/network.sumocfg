@@ -5,8 +5,8 @@
     <input>
         <net-file value="toronto.net.xml"/>
         <route-files value="network.rou.xml"/>
-        <additional-files value="toronto_additional.add.xml"/>
-        <!-- <additional-files value="instantInductionLoop_gneE1_0_0.xml"/> -->
+        <!-- <additional-files value="toronto_additional.add.xml"/> -->
+<!--         <additional-files value="instantInductionLoop_gneE1_0_0.xml"/> -->
     </input>
 
     <time>

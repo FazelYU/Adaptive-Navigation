@@ -81,8 +81,8 @@ class Base_Agent(object):
         # else:
         #     return random_state.size
         return self.environment.utils.get_state_diminsion(agent_id)
+    
     def get_action_space_size(self,agent_id):
-
         return self.env_agent_dic[agent_id][1]
 
     def get_score_required_to_win(self):
@@ -292,14 +292,19 @@ class Base_Agent(object):
         """Runs a step within a game including a learning step if required"""
         self.reset_game()
         while not self.done:
+            routing_queries=self.environment.get_routing_queries()
             if self.config.routing_mode=="Q_routing":
-                actions = self.pick_action(self.environment.get_routing_queries())
+                actions = self.pick_action(routing_queries)
             else:
                 # creating dummy actions which will later be discarded by the environment
                 actions=[0]*len(self.environment.get_routing_queries())
             
             try:
                 assert(len(actions)==len(self.environment.get_routing_queries()))
+                for ac,rq in zip(actions,routing_queries):
+                    agent_id=rq["agent_id"]
+                    assert(ac != None)
+                    assert(ac < self.get_action_space_size(agent_id))
             except Exception as e:
                 breakpoint()
 

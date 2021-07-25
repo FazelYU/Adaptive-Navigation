@@ -92,11 +92,12 @@ class Utils(object):
                 "embeding": embeding}
 
     def get_network_state_embeding(self):
-        try:
-            assert(self.network_state!=[])
-        except Exception as e:
-            self.log('network_state is null',type='err')
-            # breakpoint()
+        return []
+        # try:
+        #     assert(self.network_state!=[])
+        # except Exception as e:
+        #     self.log('network_state is null',type='err')
+        #     # breakpoint()
         
         return self.network_state
             # return[1]
@@ -174,12 +175,12 @@ class Utils(object):
         return False
 
     def get_edge_path(self,edgeID):
-        """receives edge ID returns edge"""
+        """receives edgeID of the first edge returns edgeID of the path until there is only one connection"""
         path=[edgeID]
         path_head_connections=self.network.get_edge_connections(edgeID)
 
         while len(path_head_connections)==1:
-            path.append(path_head_connections[0][1])
+            path.append(path_head_connections[0])
             path_head_connections=self.network.get_edge_connections(path[-1])
 
 
@@ -215,6 +216,9 @@ class Utils(object):
     
     def get_induction_loop_edge(self,inductionloop):
         return inductionloop.split('_')[1]
+
+    def get_lane_edge(self,lane_ID):
+        return traci.lane.getEdgeID(lane_ID)
 
     def get_edge_index_among_node_out_edges(self,edge_id,node_id):
         return self.network.get_out_edges(node_id).index(edge_id)    

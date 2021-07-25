@@ -96,45 +96,49 @@ class AR_SUMO_Environment(gym.Env):
 			sim_time=traci.simulation.getTime()
 			self.utils.log("sim_time:{} ".format(sim_time))
 			self.change_traffic_condition(sim_time)
-			# ------------------------------------------
-			# actions=[self.get_random_action(trans_vehicle) for trans_vehicle in self.routing_queries]				
-			try:
-				assert(len(self.routing_queries)==len(actions))
-			except Exception as e:
-				breakpoint()
 
+			# ------------------------------------------
 			self.set_route(self.routing_queries, actions)
 			#-------------------------------------------- 
 			traci.simulationStep()
+
+			try:
+				assert(traci.simulation.getStartingTeleportNumber()==0)
+				# assert(traci.simulation.getArrivedNumber()==0)
+			except Exception as e:
+				breakpoint()
 
 				# self.utils.update_and_evolve_node_features()
 			# -------------------------------------------
 
 			self.refresh_exp()
 			self.refresh_routing_queries()
-			# -------------------------------------------
+
+# ------------------------------------------------------------
 			# for vc in traci.vehicle.getIDList():
 			# 	if sim_time>self.vehicles[vc]["dead_line"]:
 			# 		self.fail_routing(vc,sim_time)
+#-------------------------------------------------------------
 			routing_queries,exiting_queries=self.get_queries()
 
 			for vc in routing_queries:
 				# self.add_to_next_trans_for_routing(vc)
 				road=traci.vehicle.getRoadID(vc)
-				try:
+				try:					
 					assert(road in self.network.edge_ID_dic)
 				except:
-					self.utils.log("{} has entered an internal edge. Too late for making a routing decision".format(vc))
+					self.utils.log("{} has passed the detector without a decision. Too late for making a routing decision".format(vc))
 					breakpoint()
 
-				agent_id=self.utils.get_edge_path_head_node(road)	
+				next_agent_id=self.utils.get_edge_path_head_node(road)	
 
 				try:
-					assert(agent_id in self.utils.agent_dic)
+					assert(next_agent_id in self.utils.agent_dic)
 				except:
-					self.utils.log("invalid agent ID: {}".format(agent_id))
+					self.utils.log("invalid agent ID: {}".format(next_agent_id))
 					breakpoint()		
-				next_state=self.utils.get_state(road,agent_id,self.vehicles[vc]["destination"])
+				
+				next_state=self.utils.get_state(road,next_agent_id,self.vehicles[vc]["destination"])
 				
 				if not self.vehicles[vc]["is_new"]:
 					try:
@@ -148,18 +152,17 @@ class AR_SUMO_Environment(gym.Env):
 					
 					reward=self.get_reward(self.vehicles[vc]["time"],sim_time)
 
-					# try:
-					# 	if not self.vehicles[vc]["is_action_valid"]:
-					# 		assert(self.vehicles[vc]["substitute_action"]<self.utils.agent_dic[agent_id][1])
-					# 	assert(self.vehicles[vc]["action"]<self.utils.agent_dic[agent_id][1])
-					# except Exception as e:
-					# 	breakpoint()
 
 					if self.vehicles[vc]["is_action_valid"]:
+						try:
+							assert(self.vehicles[vc]["action"]<self.utils.agent_dic[self.vehicles[vc]["state"]['agent_id']][1])
+							# breakpoint()
+						except Exception as e:
+							breakpoint()
 						self.save_expirence(self.vehicles[vc]["state"],self.vehicles[vc]["action"],reward,next_state,done=False)
 					else:
 						try:
-							assert(self.vehicles[vc]["action"]<self.utils.agent_dic[self.vehicles[vc]["state"]['agent_id']][1])
+							assert(self.vehicles[vc]["substitute_action"]<self.utils.agent_dic[self.vehicles[vc]["state"]['agent_id']][1])
 						except Exception as e:
 							breakpoint()
 						self.save_expirence(self.vehicles[vc]["state"],self.vehicles[vc]["action"],100*reward,next_state,done=False)
@@ -171,7 +174,7 @@ class AR_SUMO_Environment(gym.Env):
 				except Exception as e:
 					breakpoint()
 				
-				self.update_env_vc_info(vc, sim_time,road,agent_id,next_state)
+				self.update_env_vc_info(vc, sim_time,road,next_agent_id,next_state)
 				self.routing_queries.append(vc)
 				self.routing_queries_states.append(next_state)
 
@@ -180,27 +183,45 @@ class AR_SUMO_Environment(gym.Env):
 				reward=self.get_reward(self.vehicles[vc]["time"],sim_time)
 
 				if self.vehicles[vc]["is_action_valid"]:
+					try:
+						assert(self.vehicles[vc]["action"]<self.utils.agent_dic[self.vehicles[vc]["state"]['agent_id']][1])
+					except Exception as e:
+						breakpoint()
+	
 					self.save_expirence(self.vehicles[vc]["state"],self.vehicles[vc]["action"],reward,next_state=None,done=True)
 				else:
+					try:
+						assert(self.vehicles[vc]["substitute_action"]<self.utils.agent_dic[self.vehicles[vc]["state"]['agent_id']][1])
+					except Exception as e:
+						breakpoint()
+					
 					self.save_expirence(self.vehicles[vc]["state"],self.vehicles[vc]["action"],10*reward,next_state=None,done=True)
 					self.save_expirence(self.vehicles[vc]["state"],self.vehicles[vc]["substitute_action"],reward,next_state=None,done=True)
 
 				self.success_routing(vc,sim_time)
-			# ----------------------------------------
+
+			# try:
+
+			# 	assert(len(self.vehicles)==traci.vehicle.getIDCount())
+			# except Exception as e:
+			# 	self.utils.log("engine vc and env vc not match")
+			# 	breakpoint()
+
 			return self.close(sim_time)
 
 
 		def set_route(self,VCs,ACTs):
 			
 			for vc, ac in zip(VCs, ACTs):
-				assert(ac!=None)
 				self.vehicles[vc]["action"]=ac
 				self.vehicles[vc]["substitute_action"]=None
 				self.vehicles[vc]["is_action_valid"]=True
 				agent_id=self.vehicles[vc]["agent_id"]
 
 				try:
-					assert(self.vehicles[vc]["action"]<self.utils.agent_dic[agent_id][1])
+					ac=self.vehicles[vc]["action"]
+					assert(ac!=None)
+					assert(ac<self.utils.agent_dic[agent_id][1])
 				except Exception as e:
 					breakpoint()
 
@@ -228,7 +249,38 @@ class AR_SUMO_Environment(gym.Env):
 					self.utils.log('Failed! Action {} is not valid @ road {}'.format(ac,current_road))
 					self.set_substitue_action(vc,current_road,current_lane,agent_id)
 
+		def is_action_valid(self,agent_id,action):
+			return action<self.utils.agent_dic[agent_id][1]
 
+		def is_action_valid(self,road,action):
+			pass
+
+		def set_substitue_action(self,vc,current_road,current_lane,agent_id):
+			self.vehicles[vc]["is_action_valid"]=False
+			self.vehicles[vc]["substitute_action"]=self.get_subtitue_action(current_lane,agent_id)
+			try:
+				assert(self.vehicles[vc]["substitute_action"])!= None
+				assert(self.vehicles[vc]["substitute_action"]<self.utils.agent_dic[agent_id][1])
+			except Exception as e:
+				breakpoint()
+			next_roads = self.utils.get_next_road_IDs(agent_id,self.vehicles[vc]["substitute_action"])
+			self.cummulative_n_invalid_actions+=1
+			try:
+				traci.vehicle.setRoute(vc, [current_road]+ next_roads)	
+				self.utils.log("agnet {} generated substitute routing response {} for {}".format(agent_id,[current_road]+ next_roads,vc))
+			except Exception as e:
+				self.utils.log("error in setting the substitute route",type='err')
+				breakpoint()
+
+		def get_subtitue_action(self, lane_ID,agent_id):
+			"""
+			return a random number between 1 and len(self.utils.get_out_edges(self.g)t_intersec_id(vc_ID)])
+			"""
+			edge_ID=self.utils.get_lane_edge(lane_ID)
+			connections=self.network.get_edge_connections(edge_ID)
+			subs_edge=random.choice(connections)
+			subs_act=self.utils.get_edge_index_among_node_out_edges(subs_edge,agent_id)
+			return subs_act
 		
 
 
@@ -257,6 +309,20 @@ class AR_SUMO_Environment(gym.Env):
 			self.vehicles[vc]["state"]=state
 			self.vehicles[vc]["is_new"]=False
 
+		def set_routing_response(self,vc,action):
+			try:
+				assert(action<self.utils.agent_dic[agent_id][1])
+			except Exception as e:
+				breakpoint()
+			self.vehicles[vc]["action"]=action
+
+		def set_routing_sub_response(self,vc,sub_action):
+			try:
+				assert(sub_action<self.utils.agent_dic[agent_id][1])
+			except Exception as e:
+				breakpoint()
+			self.vehicles[vc]["substitute_action"]=sub_action
+		
 		def get_reward(self,last_time,current_time):
 			return last_time-current_time
 		
@@ -284,31 +350,6 @@ class AR_SUMO_Environment(gym.Env):
 			self.vehicles.pop(vc)
 			traci.vehicle.remove(vc)			
 
-		def set_substitue_action(self,vc,current_road,current_lane,agent_id):
-			self.vehicles[vc]["is_action_valid"]=False
-			self.vehicles[vc]["substitute_action"]=self.get_subtitue_action(current_lane,agent_id)
-			try:
-				assert(self.vehicles[vc]["substitute_action"]<self.utils.agent_dic[agent_id][1])
-			except Exception as e:
-				breakpoint()
-			next_roads = self.utils.get_next_road_IDs(agent_id,self.vehicles[vc]["substitute_action"])
-			self.cummulative_n_invalid_actions+=1
-			try:
-				traci.vehicle.setRoute(vc, [current_road]+ next_roads)	
-				self.utils.log("agnet {} generated substitute routing response {} for {}".format(agent_id,[current_road]+ next_roads,vc))
-			except Exception as e:
-				self.utils.log("error in setting the substitute route",type='err')
-				breakpoint()
-
-		def get_subtitue_action(self, lane_ID,agent_id):
-			"""
-			return a random number between 1 and len(self.utils.get_out_edges(self.g)t_intersec_id(vc_ID)])
-			"""
-			self.utils.log("I am assuming that each edge has only one lane",type='warn')
-			subs_edge=random.choice(traci.lane.getLinks(lane_ID))[0].split('_')[0]
-			subs_act=self.utils.get_edge_index_among_node_out_edges(subs_edge,agent_id)
-			
-			return subs_act
 		
 		def change_traffic_condition(self,time):
 			if time%self.config.traffic_period==1:
