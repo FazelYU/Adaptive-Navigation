@@ -20,7 +20,7 @@ class AR_SUMO_Environment(gym.Env):
 			self.init_traci()		
 			self.network = RoadNetworkModel(Constants["ROOT"], Constants["Network_XML"])
 			# breakpoint()
-			self.utils=Utils(environment=self,network=self.network,Num_Flows=1,device=device,GAT=config.GAT,embed_network=False)
+			self.utils=Utils(config=config,environment=self,network=self.network,Num_Flows=1,device=device,GAT=config.GAT,embed_network=False)
 			# breakpoint()
 			# traci.edge.adaptTraveltime('gneE6',4*traci.edge.getTraveltime('gneE6'))
 
@@ -131,7 +131,7 @@ class AR_SUMO_Environment(gym.Env):
 					self.utils.log("{} has passed the detector without a decision. Too late for making a routing decision".format(vc))
 					breakpoint()
 
-				next_agent_id=self.utils.get_edge_path_head_node(road)	
+				next_agent_id=self.network.get_edge_head_node(road)	
 
 				try:
 					assert(next_agent_id in self.utils.agent_dic)
@@ -180,24 +180,24 @@ class AR_SUMO_Environment(gym.Env):
 				self.routing_queries_states.append(next_state)
 
 			for vc in exiting_queries:
-				assert(not self.vehicles[vc]["is_new"])
-				reward=self.get_reward(self.vehicles[vc]["time"],sim_time)
+				if not self.vehicles[vc]["is_new"]:
+					reward=self.get_reward(self.vehicles[vc]["time"],sim_time)
 
-				if self.vehicles[vc]["is_action_valid"]:
-					try:
-						assert(self.vehicles[vc]["action"]<self.utils.agent_dic[self.vehicles[vc]["state"]['agent_id']][1])
-					except Exception as e:
-						breakpoint()
-	
-					self.save_expirence(self.vehicles[vc]["state"],self.vehicles[vc]["action"],reward,next_state=None,done=True)
-				else:
-					try:
-						assert(self.vehicles[vc]["substitute_action"]<self.utils.agent_dic[self.vehicles[vc]["state"]['agent_id']][1])
-					except Exception as e:
-						breakpoint()
-					
-					self.save_expirence(self.vehicles[vc]["state"],self.vehicles[vc]["action"],10*reward,next_state=None,done=True)
-					self.save_expirence(self.vehicles[vc]["state"],self.vehicles[vc]["substitute_action"],reward,next_state=None,done=True)
+					if self.vehicles[vc]["is_action_valid"]:
+						try:
+							assert(self.vehicles[vc]["action"]<self.utils.agent_dic[self.vehicles[vc]["state"]['agent_id']][1])
+						except Exception as e:
+							breakpoint()
+		
+						self.save_expirence(self.vehicles[vc]["state"],self.vehicles[vc]["action"],reward,next_state=None,done=True)
+					else:
+						try:
+							assert(self.vehicles[vc]["substitute_action"]<self.utils.agent_dic[self.vehicles[vc]["state"]['agent_id']][1])
+						except Exception as e:
+							breakpoint()
+						
+						self.save_expirence(self.vehicles[vc]["state"],self.vehicles[vc]["action"],10*reward,next_state=None,done=True)
+						self.save_expirence(self.vehicles[vc]["state"],self.vehicles[vc]["substitute_action"],reward,next_state=None,done=True)
 
 				self.success_routing(vc,sim_time)
 
@@ -354,15 +354,27 @@ class AR_SUMO_Environment(gym.Env):
 		
 		def change_traffic_condition(self,time):
 			if time%self.config.traffic_period==1:
-				self.utils.set_network_state(epsilon=1)
+				self.utils.set_network_state()
+			
+			if traci.vehicle.getIDCount()>self.config.Max_number_vc \
+				or self.config.next_uniform_demand_index==len(self.config.uniform_demands)-1:
+				return
 
-			if time%self.config.vc_period==1 and traci.vehicle.getIDCount()<self.config.Max_number_vc:
-				vid,road,destination,dead_line=self.utils.generate_random_trip(time)
-				self.add_env_vc(vid,road,time,destination,dead_line)
-		
+			if time%self.config.uniform_demand_period==1:
+				vids,road,destination,dead_line=self.utils.generate_uniform_demand(time)
+				for vid in vids:
+					self.add_env_vc(vid,road,time,destination,dead_line)
+						
+			if time%self.config.biased_demand_period==1:
+				for trip in self.config.biased_demand:			
+					vids,road,destination,dead_line=self.utils.generate_biased_demand(time,trip)
+					for vid in vids:
+						self.add_env_vc(vid,road,time,destination,dead_line)
+			
 		
 		def log_data(self):
 			if self.cummulative_n_success_v!=0:
+				self.summ_writer.add_scalar("Routing Success:",self.cummulative_n_success_v,self.episode_number)
 				self.summ_writer.add_scalar("AVTT:",self.cummulative_tt/self.cummulative_n_success_v,self.episode_number)
 			# self.summ_writer.add_scalar("Routing Succcess:",self.cummulative_n_success_v,self.episode_number)
 			# self.summ_writer.add_scalar("Routing failure:",self.cummulative_n_failed_v,self.episode_number)
@@ -377,6 +389,7 @@ class AR_SUMO_Environment(gym.Env):
 		def close(self,sim_time):
 			if self.is_terminal(sim_time):
 				# self.summ_writer.close()
+				self.config.next_uniform_demand_index=0
 				if self.log_data:
 					self.log_data()
 				return self.states,self.acts,self.next_states,self.rewds,self.dones,True
@@ -388,8 +401,9 @@ class AR_SUMO_Environment(gym.Env):
 			check for some terminal condition. e.g. all vehicles exited the simulation or the time limit has passed
 
 			"""
-			# traci.simulation.getMinExpectedNumber() == 0 or
-			return sim_time%self.config.episode_period==self.config.episode_period-1
+			return self.config.next_uniform_demand_index==len(self.config.uniform_demands)-1 and \
+					traci.simulation.getMinExpectedNumber() == 0
+			
 
 		def init_traci(self):
 			sys.path.append(os.path.join(Constants['SUMO_PATH'], os.sep, 'tools'))

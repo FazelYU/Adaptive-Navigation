@@ -16,16 +16,17 @@ Constants = {
     "SUMO_CONFIG" : "./environments/sumo/networks/toronto/network.sumocfg", #path to your sumo config file
     "ROOT" : "./",
     "Network_XML" : "./environments/sumo/networks/toronto/toronto.net.xml",
-    'LOG' : True,
+    'LOG' : False,
     'WARNINGS': False,
     'WHERE':False,
-    'Simulation_Delay' : '50'
+    'Simulation_Delay' : '0'
     }
 
 class Utils(object):
     """docstring for Utils"""
-    def __init__(self,environment,network,Num_Flows,device,GAT,embed_network):
+    def __init__(self,config,environment,network,Num_Flows,device,GAT,embed_network):
         super(Utils, self).__init__()
+        self.config=config
         self.network=network
         self.Num_Flows=Num_Flows
 
@@ -45,43 +46,27 @@ class Utils(object):
         
 
         self.agent_dic=self.create_agent_dic()#{node:[len(in edges), len(out edges)]}
-        self.agent_dic_index = {list(self.agent_dic)[idx]: idx for idx in range(len(self.agent_dic))}
+        self.agent_list=list(self.agent_dic)
+        self.agent_index={self.agent_list[idx]:idx for idx in range(len(self.agent_list))}
         
-        # self.sink_edge_list=[self.network.get_edge_ID(edge) \
-        #                 for edge in self.network.graph.out_edges \
-        #                 if self.network.graph.out_degree(edge[1])==1 and \
-        #                 self.network.graph.in_degree(edge[1])==1]
-        # self.source_edge_list=[self.network.get_edge_ID(edge) \
-        #                 for edge in self.network.graph.out_edges \
-        #                 if self.network.graph.out_degree(edge[0])==1 and \
-        #                 self.network.graph.in_degree(edge[0])==0
-        #                 ]        
+        self.path_dic=self.create_path_dic()
 
-        self.sink_edge_list=[
-                            '-695753527#1',
-        ]
-        self.source_edge_list=[
-                            '-4281669#2',
-        ]
-        self.sink_nodes_list=[self.network.get_edge_head_node(sink_edge) for sink_edge in self.sink_edge_list]
-        self.sink_nodes_index={self.sink_nodes_list[idx]:idx for idx in range(len(self.sink_nodes_list))}
-        self.sink_embed_dim=len(self.sink_nodes_list)
-        # self.state_dim=self.sink_embed_dim+self.network_embed_dim
+        self.destination_embed_dim=len(self.agent_list)
+        # self.state_dim=self.destination_embed_dim+self.network_embed_dim
         self.induction_loops=[il for il in traci.inductionloop.getIDList() \
                             if "TLS" not in il]
-        self.sink_edge_induction_loops=self.get_sink_edge_induction_loops()
-        self.transition_induction_loops=[il for il in self.induction_loops if il not in self.sink_edge_induction_loops]
 
         self.network_state=[]
-        self.dynamic_edges={
-        }
-        self.network_embed_dim=sum([len(self.dynamic_edges[edge]) for edge in self.dynamic_edges])
+        self.dynamic_paths=self.path_dic #all edges are prone to congestion
+
+        self.network_embed_dim=0
+        # sum([len(self.dynamic_edges[edge]) for edge in self.dynamic_edges])
         
     def get_state(self,source_edge,source_node,sink_node):
         source_embed=[0]*self.agent_dic[source_node][0]
         source_embed[self.get_edge_index_among_node_in_edges(source_edge,source_node)]=1
-        dest_embed=[0]*len(self.sink_nodes_list)
-        dest_embed[self.sink_nodes_index[sink_node]]=1
+        dest_embed=[0]*self.destination_embed_dim
+        dest_embed[self.agent_index[sink_node]]=1
         embeding=source_embed+dest_embed+self.get_network_state_embeding()
         try:
             assert(len(embeding)==self.get_state_diminsion(source_node))
@@ -102,21 +87,22 @@ class Utils(object):
         return self.network_state
             # return[1]
 
-    def set_network_state(self,epsilon):
+    def set_network_state(self):
         self.network_state=[]
-        for edge in self.dynamic_edges:
-            if random.random()>epsilon:
-                continue
+        for path_key in self.dynamic_paths:
+            if random.random()>self.config.congestion_epsilon:
+                # no congestion for the edge
+                for edge in self.dynamic_paths[path_key]:
+                    traci.edge.setMaxSpeed(edge,self.network.edge_speed_dic[edge])
 
-            size=len(self.dynamic_edges[edge])
-            index=random.choice(range(0,size))
-            edge_state=[0]*size
-            edge_state[index]=1
-            self.network_state+=edge_state
-            traci.edge.setMaxSpeed(edge,self.dynamic_edges[edge][index])
+            else:
+                #congestion 
+                for edge in self.dynamic_paths[path_key]:
+                    traci.edge.setMaxSpeed(edge,self.network.edge_speed_dic[edge]*self.config.congestion_speed_factor)
+
 
     def get_state_diminsion(self,agent_id): 
-        return self.agent_dic[agent_id][0]+self.sink_embed_dim+self.network_embed_dim
+        return self.agent_dic[agent_id][0]+self.destination_embed_dim+self.network_embed_dim
     
     def get_flow_id(self,vehicle_id):
         splited=vehicle_id.split('_')
@@ -126,33 +112,41 @@ class Utils(object):
     def state2torch(self,state):
         state=torch.tensor(state, device=self.device, dtype=torch.float)
         return state.unsqueeze(0)
-# ---------------------------------------------------------------------------
-    def generate_random_trips(self,num_trips,num_vehiles_per_trip=None):
-        if num_vehiles_per_trip==None:
-            num_vehiles_per_trip=[1 for i in range(0,num_trips)]
-        
-        for i in range(0,num_trips):
-            source=random.choice(self.source_edge_list)
-            sink_edge=random.choice(self.sink_edge_list)
-            traci.route.add("trip_{}".format(i),[source,sink_edge])
-            # stage=traci.simulation.findRoute(source,sink_edge)
-            # breakpoint()
-            # edgeTT=sum([traci.edge.getTraveltime(edgeID) for edgeID in traci.route.getEdges("trip_{}".format(i)) ])
-            # breakpoint()
-            for j in range(0,num_vehiles_per_trip[i]):
-                traci.vehicle.add("vehicle_{}_{}".format(i,j),"trip_{}".format(i))
-    
-    def generate_random_trip(self,sim_time):
-        # source_edge='gneE19'
-        source_edge=random.choice(self.source_edge_list)
-        # sink_edge='gneE18'
-        sink_edge=random.choice(self.sink_edge_list)
+# ---------------------------------------------------------------------------  
+    def generate_uniform_demand(self,sim_time):
+        trip=self.config.uniform_demands[self.config.next_uniform_demand_index]
+        self.config.next_uniform_demand_index+=1
+
+        source_edge=trip[0]
+        sink_edge=trip[1]
+
+        new_vcs=[]
         traci.route.add("trip_{}".format(sim_time),[source_edge,sink_edge])
-        traci.vehicle.add("vehicle_{}".format(sim_time),"trip_{}".format(sim_time))
-        deadline=4*self.get_shortest_path_time(self.network.get_edge_tail_node(source_edge),self.network.get_edge_head_node(sink_edge))+sim_time
+        deadline=4*self.get_shortest_path_time(self.network.get_edge_tail_node(source_edge),self.network.get_edge_head_node(sink_edge))\
+                    +sim_time
+
+        for i in range(0,self.config.demand_scale):
+            traci.vehicle.add("vehicle_{}_{}".format(sim_time,i),"trip_{}".format(sim_time))
+            new_vcs.append("vehicle_{}_{}".format(sim_time,i))
         # traci.vehicle.setColor("vehicle_{}".format(sim_time),(255,0,255))
         # traci.vehicle.setShapeClass("vehicle_{}".format(sim_time),"truck")
-        return "vehicle_{}".format(sim_time),source_edge,self.network.get_edge_head_node(sink_edge),deadline+sim_time
+        return new_vcs,source_edge,self.network.get_edge_head_node(sink_edge),deadline
+    
+    def generate_biased_demand(self,sim_time,trip):                  
+        source_edge=trip[0]
+        sink_edge=trip[1]
+
+        new_vcs=[]
+        traci.route.add("biased_trip_{}".format(sim_time),[source_edge,sink_edge])
+        deadline=4*self.get_shortest_path_time(self.network.get_edge_tail_node(source_edge),self.network.get_edge_head_node(sink_edge))\
+                    +sim_time
+
+        for i in range(0,self.config.demand_scale):
+            traci.vehicle.add("biased_vehicle_{}_{}".format(sim_time,i),"biased_trip_{}".format(sim_time))
+            new_vcs.append("biased_vehicle_{}_{}".format(sim_time,i))
+            # traci.vehicle.setColor("vehicle_{}".format(sim_time),(255,0,255))
+        # traci.vehicle.setShapeClass("vehicle_{}".format(sim_time),"truck")
+        return new_vcs,source_edge,self.network.get_edge_head_node(sink_edge),deadline
 # ------------------------------------------------------------------ 
     def create_agent_dic(self):
         return {\
@@ -160,6 +154,8 @@ class Utils(object):
                 for node in self.network.graph.nodes() if \
                 self.does_need_agent(node)
         }
+
+
 
     def does_need_agent(self,node):
         if node==None: 
@@ -174,7 +170,16 @@ class Utils(object):
 
         return False
 
-    def get_edge_path(self,edgeID):
+    def create_path_dic(self):
+        paths={}
+        for agent in self.agent_dic:
+            for out_edge in self.network.get_out_edges(agent):
+                assert(out_edge not in paths)
+                paths[out_edge]=self.create_edge_path(out_edge)
+        return paths
+
+    
+    def create_edge_path(self,edgeID):
         """receives edgeID of the first edge returns edgeID of the path until there is only one connection"""
         path=[edgeID]
         path_head_connections=self.network.get_edge_connections(edgeID)
@@ -185,6 +190,9 @@ class Utils(object):
 
 
         return path
+
+    def get_edge_path(self,edge_id):
+        return self.path_dic[edge_id]
 
     def get_edge_path_head_node(self,edge):
         return self.network.get_edge_head_node(self.get_edge_path(edge)[-1])
@@ -210,10 +218,7 @@ class Utils(object):
 
     def get_shortest_path_time(self,source,destination):
         return self.network.all_pairs_shortest_path[source][destination]
-
-    def get_sink_edge_induction_loops(self):
-        return [il for il in self.induction_loops if self.get_induction_loop_edge(il) in self.sink_edge_list]
-    
+ 
     def get_induction_loop_edge(self,inductionloop):
         return inductionloop.split('_')[1]
 

@@ -50,15 +50,17 @@ class RoadNetworkModel():
 
         self.edge_ID_dic=self.create_edge_ID_dic()
         self.edge_connection_dic=self.create_edge_connection_dic()
+        self.edge_speed_dic=self.creat_edge_speed_dic()
+        self.node_dic=self.create_node_dic()      
+        self.all_pairs_shortest_path= dict(nx.all_pairs_dijkstra_path_length(self.graph))
+
+
         for edge in self.edge_ID_dic:
             try:
                 assert(len(self.get_edge_connections(edge))>0)
-            except:
+                assert(len(self.connectionGraph.in_edges(edge))!=0)
+            except Exception as e:
                 breakpoint()
-        self.node_dic=self.create_node_dic()
-        
-        self.all_pairs_shortest_path= dict(nx.all_pairs_dijkstra_path_length(self.graph))
-
 
     def read_model(self, filename):
         """Parse a road network model from xml format to dictionary."""
@@ -95,7 +97,7 @@ class RoadNetworkModel():
         
     def construct_graph(self):
         """Create a directed graph representation fo the system."""
-        self.graph = nx.DiGraph([(edge.from_id, edge.to_id, {'edge': edge, 'weight':traci.edge.getTraveltime(edge.id)})
+        self.graph = nx.DiGraph([(edge.from_id, edge.to_id, {'edge': edge, 'weight':traci.edge.getTraveltime(edge.id),'speed':traci.lane.getMaxSpeed(edge.id+"_0")})
         # self.graph = nx.DiGraph([(edge.from_id, edge.to_id, {'edge': edge})
             for edge in self.edges.values()])
         
@@ -203,11 +205,18 @@ class RoadNetworkModel():
         return {edge: [connection[1] for connection in self.connectionGraph.out_edges(edge)] 
         for edge in self.edge_ID_dic}
 
+    def creat_edge_speed_dic(self):
+        return {edgeID: self.get_edge_speed(self.get_edge(edgeID)) 
+        for edgeID in self.edge_ID_dic}
+
+    def get_edge(self,edgeID):
+        return self.edge_ID_dic[edgeID]
+
     def get_edge_ID(self,edge):
         return self.graph.get_edge_data(*edge)['edge'].id
    
-    def get_edge(self,edgeID):
-        return self.edge_ID_dic[edgeID]
+    def get_edge_speed(self,edge):
+        return self.graph.get_edge_data(*edge)['speed']
 
     def create_node_dic(self):
         """

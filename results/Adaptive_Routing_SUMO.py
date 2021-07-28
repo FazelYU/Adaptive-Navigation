@@ -26,33 +26,40 @@ import torch.nn.functional as F
 import torchvision.transforms as T
 
 from pytorchGAT.models.definitions.GAT import GAT
+import xml.etree.ElementTree as ET
 
+treeTrips=ET.parse('./environments/sumo/toronto_trips.xml')
+rootTrips = treeTrips.getroot()
 
-# import environments.Adaptive_Routing_Environment_D
-# from environments.Utils import Utils
-
-# device = torch.device("cuda" if torch.cuda.is_available() else "cpu") #device is cpu
 device = torch.device("cpu" if torch.cuda.is_available() else "cpu") #device is cpu
-# device="cpu"
 config = Config()
 config.seed = 1
 
-# breakpoint()
-# num_possible_states =config.environment.utils.get_state_diminsion()
-# embedding_dimensions = [[num_possible_states, 20]]
-# print("Num possible states ", num_possible_states)
 config.use_GPU = False
-config.exp_name="4x3"
+config.exp_name="toronto"
 config.should_load_model=False
-config.should_save_model=True
-config.num_episodes_to_run = 1000
-config.vc_period=5
-config.traffic_period=100
-config.Max_number_vc=100
-config.episode_period=4000
+config.should_save_model=False
 routing_modes=["Q_routing","TTSPWRR","TTSP"]
-config.routing_mode=routing_modes[0]
+config.routing_mode=routing_modes[1]
+# -------------------------------------------------
+config.num_episodes_to_run = 10
+config.Max_number_vc=200
+config.uniform_demand_period=5
+config.biased_demand_period=50
+config.traffic_period=500
+config.episode_period=5000
 
+config.demand_scale=1
+config.congestion_epsilon=0.25
+config.congestion_speed_factor=0.1
+
+config.biased_demand=[['195203644','-23973402#5']] #list of the biased O-D demands 
+config.uniform_demands=[
+        [trip_xml.attrib["origin"],trip_xml.attrib["destination"]] 
+            for trip_xml in rootTrips.findall("trip")
+            ]
+config.next_uniform_demand_index=0
+# -------------------------------------------------
 config.file_to_save_data_results = "Data_and_Graphs/Adaptive_Routing.pkl"
 config.file_to_save_results_graph = "Data_and_Graphs/Adaptive_Routing.png"
 config.show_solution_score = False
