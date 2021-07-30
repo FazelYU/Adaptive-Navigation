@@ -6,6 +6,7 @@ import random
 import traci
 from inspect import currentframe, getframeinfo
 import networkx as nx
+import pymorton as pm
 
 
 Constants = {
@@ -46,15 +47,13 @@ class Utils(object):
         
 
         self.agent_dic=self.create_agent_dic()#{node:[len(in edges), len(out edges)]}
+        self.agent_id_embedding_dic,self.agnet_id_embedding_size=self.create_agent_embedding_dic()
         self.agent_list=list(self.agent_dic)
         self.agent_index={self.agent_list[idx]:idx for idx in range(len(self.agent_list))}
         
         self.path_dic=self.create_path_dic()
 
-        self.destination_embed_dim=len(self.agent_list)
-        # self.state_dim=self.destination_embed_dim+self.network_embed_dim
-        self.induction_loops=[il for il in traci.inductionloop.getIDList() \
-                            if "TLS" not in il]
+        self.induction_loops=[il for il in traci.inductionloop.getIDList() if "TLS" not in il]
 
         self.network_state=[]
         self.dynamic_paths=self.path_dic #all edges are prone to congestion
@@ -65,8 +64,7 @@ class Utils(object):
     def get_state(self,source_edge,source_node,sink_node):
         source_embed=[0]*self.agent_dic[source_node][0]
         source_embed[self.get_edge_index_among_node_in_edges(source_edge,source_node)]=1
-        dest_embed=[0]*self.destination_embed_dim
-        dest_embed[self.agent_index[sink_node]]=1
+        dest_embed=self.agent_id_embedding_dic[sink_node]
         embeding=source_embed+dest_embed+self.get_network_state_embeding()
         try:
             assert(len(embeding)==self.get_state_diminsion(source_node))
@@ -102,7 +100,7 @@ class Utils(object):
 
 
     def get_state_diminsion(self,agent_id): 
-        return self.agent_dic[agent_id][0]+self.destination_embed_dim+self.network_embed_dim
+        return self.agent_dic[agent_id][0]+self.agnet_id_embedding_size+self.network_embed_dim
     
     def get_flow_id(self,vehicle_id):
         splited=vehicle_id.split('_')
@@ -149,11 +147,45 @@ class Utils(object):
         return new_vcs,source_edge,self.network.get_edge_head_node(sink_edge),deadline
 # ------------------------------------------------------------------ 
     def create_agent_dic(self):
+        """dictionary of all agents, 
+        agent_dic[0]:#in edges
+        agent_dic[1]:#out edges"""
         return {\
-                node: [len(self.network.get_in_edges(node)),len(self.network.get_out_edges(node))] \
+                node: [
+                        len(self.network.get_in_edges(node)),
+                        len(self.network.get_out_edges(node)),
+                        ] \
                 for node in self.network.graph.nodes() if \
                 self.does_need_agent(node)
         }
+
+    def create_agent_embedding_dic(self):
+        z_order_dic={}
+        agent_embedding_dic={}
+        for agent_id in self.agent_dic:
+            position=traci.junction.getPosition(agent_id)
+            unique_Z_ID=pm.interleave(int(position[0]),int(position[1]))
+            
+            try:
+                assert(unique_Z_ID not in z_order_dic)
+            except Exception as e:
+                breakpoint()
+
+            z_order_dic[unique_Z_ID]=agent_id
+        sorted_z_vals=list(z_order_dic)
+        sorted_z_vals.sort()
+        
+        ID_size=len(format(len(sorted_z_vals)-1,'b'))
+        for index in range(0,len(sorted_z_vals)):
+            z_val=sorted_z_vals[index]
+            agent_id=z_order_dic[z_val]
+            agent_id_embedding=[0]*ID_size
+            index_bin=format(index,'b')
+            for i in range(len(index_bin)):
+                agent_id_embedding[-i-1]=int(index_bin[-i-1])
+            agent_embedding_dic[agent_id]=agent_id_embedding
+
+        return agent_embedding_dic,ID_size
 
 
 

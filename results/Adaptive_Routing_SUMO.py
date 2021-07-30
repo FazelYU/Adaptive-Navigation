@@ -40,7 +40,7 @@ config.exp_name="toronto"
 config.should_load_model=False
 config.should_save_model=False
 routing_modes=["Q_routing","TTSPWRR","TTSP"]
-config.routing_mode=routing_modes[1]
+config.routing_mode=routing_modes[0]
 # -------------------------------------------------
 config.num_episodes_to_run = 10
 config.Max_number_vc=200
