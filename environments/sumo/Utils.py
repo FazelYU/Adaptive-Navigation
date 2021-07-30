@@ -8,6 +8,8 @@ from inspect import currentframe, getframeinfo
 import networkx as nx
 import pymorton as pm
 
+import math
+
 
 Constants = {
     "EXP":"3x3",
@@ -50,7 +52,9 @@ class Utils(object):
         self.agent_id_embedding_dic,self.agnet_id_embedding_size=self.create_agent_embedding_dic()
         self.agent_list=list(self.agent_dic)
         self.agent_index={self.agent_list[idx]:idx for idx in range(len(self.agent_list))}
-        
+    
+        self.edge_action_mask_dic=self.create_edge_action_mask_dic()
+  
         self.path_dic=self.create_path_dic()
 
         self.induction_loops=[il for il in traci.inductionloop.getIDList() if "TLS" not in il]
@@ -62,16 +66,17 @@ class Utils(object):
         # sum([len(self.dynamic_edges[edge]) for edge in self.dynamic_edges])
         
     def get_state(self,source_edge,source_node,sink_node):
-        source_embed=[0]*self.agent_dic[source_node][0]
-        source_embed[self.get_edge_index_among_node_in_edges(source_edge,source_node)]=1
+        action_mask,action_mask_index=self.get_edge_action_mask(source_edge,source_node)
         dest_embed=self.agent_id_embedding_dic[sink_node]
-        embeding=source_embed+dest_embed+self.get_network_state_embeding()
+        embeding=dest_embed+self.get_network_state_embeding()
         try:
             assert(len(embeding)==self.get_state_diminsion(source_node))
         except Exception as e:
             breakpoint()
             
         return {"agent_id": source_node,
+                "action_mask": action_mask,
+                "action_mask_index":action_mask_index,
                 "embeding": embeding}
 
     def get_network_state_embeding(self):
@@ -100,7 +105,7 @@ class Utils(object):
 
 
     def get_state_diminsion(self,agent_id): 
-        return self.agent_dic[agent_id][0]+self.agnet_id_embedding_size+self.network_embed_dim
+        return self.agnet_id_embedding_size+self.network_embed_dim
     
     def get_flow_id(self,vehicle_id):
         splited=vehicle_id.split('_')
@@ -262,6 +267,28 @@ class Utils(object):
 
     def get_edge_index_among_node_in_edges(self,edge_id,node_id):
         return self.network.get_in_edges(node_id).index(edge_id)
+
+    def get_edge_action_mask(self,edge_id,node_id):
+        assert(node_id==self.network.get_edge_head_node(edge_id))
+        return self.edge_action_mask_dic[edge_id]
+
+    def create_edge_action_mask_dic(self):
+        edge_action_mask_dic={}
+        for agent_id in self.agent_dic:
+            for in_edge_id in self.network.get_in_edges(agent_id):
+                assert(in_edge_id not in edge_action_mask_dic)
+                edge_action_mask_dic[in_edge_id]=self.create_edge_action_mask(in_edge_id)
+
+        return edge_action_mask_dic
+
+    def create_edge_action_mask(self,edge_id):
+        node_id=self.network.get_edge_head_node(edge_id)
+        node_out_edges=self.network.get_out_edges(node_id)
+        edge_connections=self.network.get_edge_connections(edge_id)
+        action_mask=torch.tensor([-math.inf if edge not in  edge_connections else 0 for edge in node_out_edges])
+        action_mask_index=[i for i in range(len(node_out_edges)) if node_out_edges[i] in edge_connections]
+        return action_mask,action_mask_index
+    
 #helper-------------------------------------------------
 
     def log(self, log_str, type='info'):

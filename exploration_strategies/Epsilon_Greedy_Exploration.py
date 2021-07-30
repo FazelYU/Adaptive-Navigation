@@ -24,8 +24,14 @@ class Epsilon_Greedy_Exploration(Base_Exploration_Strategy):
     def perturb_action_for_exploration_purposes(self, action_info):
         """Perturbs the action of the agent to encourage exploration"""
         action_values = action_info["action_values"]
+        action_mask=action_info["state"]["action_mask"]
+        action_mask_index=action_info["state"]["action_mask_index"]
+        masked_action_values=torch.add(action_values,action_mask)
+        
         turn_off_exploration = action_info["turn_off_exploration"]
         episode_number = action_info["episode_number"]
+        # for i in range(len(action_mask)):
+        #     if 
         if turn_off_exploration and not self.notified_that_exploration_turned_off:
             print(" ")
             print("Exploration has been turned OFF")
@@ -34,13 +40,13 @@ class Epsilon_Greedy_Exploration(Base_Exploration_Strategy):
         epsilon = self.get_updated_epsilon_exploration(action_info)
 
         if episode_number < self.random_episodes_to_run:
-            return  np.random.randint(0, action_values.shape[1])
+            return  np.random.choice(action_mask_index)
 
         if  episode_number>self.stop_exploration_episode or \
             random.random() > epsilon or \
             turn_off_exploration:
-            return torch.argmax(action_values).item()
-        return  np.random.randint(0, action_values.shape[1])
+            return torch.argmax(masked_action_values).item()
+        return  np.random.choice(action_mask_index)
 
     def get_updated_epsilon_exploration(self, action_info, epsilon=1.0):
         """Gets the probability that we just pick a random action. This probability decays the more episodes we have seen"""

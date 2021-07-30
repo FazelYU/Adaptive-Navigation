@@ -248,6 +248,7 @@ class AR_SUMO_Environment(gym.Env):
 
 				except Exception as e:
 					self.utils.log('Failed! Action {} is not valid @ road {}'.format(ac,current_road))
+					breakpoint()
 					self.set_substitue_action(vc,current_road,current_lane,agent_id)
 
 		def is_action_valid(self,agent_id,action):
