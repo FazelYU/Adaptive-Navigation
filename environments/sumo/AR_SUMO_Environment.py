@@ -123,7 +123,6 @@ class AR_SUMO_Environment(gym.Env):
 			routing_queries,exiting_queries=self.get_queries()
 
 			for vc in routing_queries:
-				# self.add_to_next_trans_for_routing(vc)
 				road=traci.vehicle.getRoadID(vc)
 				try:					
 					assert(road in self.network.edge_ID_dic)
@@ -137,7 +136,9 @@ class AR_SUMO_Environment(gym.Env):
 					assert(next_agent_id in self.utils.agent_dic)
 				except:
 					self.utils.log("invalid agent ID: {}".format(next_agent_id))
-					breakpoint()		
+					breakpoint()
+					self.exit(vc)
+					continue		
 				
 				next_state=self.utils.get_state(road,next_agent_id,self.vehicles[vc]["destination"])
 				
@@ -354,8 +355,8 @@ class AR_SUMO_Environment(gym.Env):
 
 		
 		def change_traffic_condition(self,time):
-			if time%self.config.traffic_period==1:
-				self.utils.set_network_state()
+			# if time%self.config.traffic_period==1:
+			# 	self.utils.set_network_state()
 			
 			if self.should_insert_new_vc(time):
 				if time%self.config.uniform_demand_period==1:

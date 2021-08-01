@@ -33,6 +33,16 @@ def init_traci():
     sumoCmd = [sumoBinary, '-S', '-d', Constants['Simulation_Delay'], "-c", Constants["SUMO_CONFIG"]]
     traci.start(sumoCmd)
 
+def reposition_il(edge_xml,lane_xml,offset):
+    position=Decimal(lane_xml.attrib["length"])
+    if position>offset:
+        position=position-offset
+    else:
+        if edge_xml.attrib['id'] not in small_edges:
+            small_edges[edge_xml.attrib['id']]=position
+        position=0
+    induction_loops_dic[lane_xml.attrib["id"]]=str(position)
+
 init_traci()
 
 networkModel = RoadNetworkModel(Constants["ROOT"], Constants["Network_XML"])
@@ -44,6 +54,7 @@ rootNET=treeNET.getroot()
 # rootADD = treeADD.getroot()
 induction_loops_dic={}
 small_edges={}
+
 for edge_xml in rootNET.findall('edge'):
     edgeID=edge_xml.attrib['id']
     if edgeID not in networkModel.edge_ID_dic:
@@ -52,14 +63,11 @@ for edge_xml in rootNET.findall('edge'):
         continue
     # create edge and edge system objects store, them keyed by id
     for lane_xml in edge_xml.findall('lane'):
-        position=Decimal(lane_xml.attrib["length"])
-        if position>40:
-            position=position-40
+        if Decimal(lane_xml.attrib['speed'])>=25:
+            reposition_il(edge_xml,lane_xml,120)
         else:
-            if edge_xml.attrib['id'] not in small_edges:
-                small_edges[edge_xml.attrib['id']]=position
-            position=0
-        induction_loops_dic[lane_xml.attrib["id"]]=str(position)
+            reposition_il(edge_xml,lane_xml,40)
+
 
 
 rootADD = ET.Element("additional")

@@ -53,7 +53,7 @@ config.demand_scale=1
 config.congestion_epsilon=0.25
 config.congestion_speed_factor=0.1
 
-config.biased_demand=[['195203644','-23973402#5']] #list of the biased O-D demands 
+config.biased_demand=[['23973402#0','435629850']] #list of the biased O-D demands 
 config.uniform_demands=[
         [trip_xml.attrib["origin"],trip_xml.attrib["destination"]] 
             for trip_xml in rootTrips.findall("trip")
