@@ -357,22 +357,35 @@ class AR_SUMO_Environment(gym.Env):
 			if time%self.config.traffic_period==1:
 				self.utils.set_network_state()
 			
-			if traci.vehicle.getIDCount()>self.config.Max_number_vc \
-				or self.config.next_uniform_demand_index==len(self.config.uniform_demands)-1:
-				return
-
-			if time%self.config.uniform_demand_period==1:
-				vids,road,destination,dead_line=self.utils.generate_uniform_demand(time)
-				for vid in vids:
-					self.add_env_vc(vid,road,time,destination,dead_line)
-						
-			if time%self.config.biased_demand_period==1:
-				for trip in self.config.biased_demand:			
-					vids,road,destination,dead_line=self.utils.generate_biased_demand(time,trip)
+			if self.should_insert_new_vc(time):
+				if time%self.config.uniform_demand_period==1:
+					vids,road,destination,dead_line=self.utils.generate_uniform_demand(time)
 					for vid in vids:
 						self.add_env_vc(vid,road,time,destination,dead_line)
-			
+							
+				if time%self.config.biased_demand_period==1:
+					for trip in self.config.biased_demand:			
+						vids,road,destination,dead_line=self.utils.generate_biased_demand(time,trip)
+						for vid in vids:
+							self.add_env_vc(vid,road,time,destination,dead_line)
 		
+		def should_insert_new_vc(self,time):
+			if self.config.training_mode:
+				#  we are in training mode
+				return traci.vehicle.getIDCount()<self.config.Max_number_vc
+
+			# we are testing. don't insert vehicles if reached the end of the test demand data.
+			return 	traci.vehicle.getIDCount()<self.config.Max_number_vc and\
+					self.config.next_uniform_demand_index<len(self.config.uniform_demands)-1
+
+		
+		def is_terminal(self,sim_time):
+			if self.config.training_mode:
+				return sim_time%self.config.max_num_sim_time_step_per_episode==self.config.max_num_sim_time_step_per_episode-1
+
+			return 	self.config.next_uniform_demand_index==len(self.config.uniform_demands)-1 \
+					and traci.simulation.getMinExpectedNumber() == 0
+			
 		def log_data(self):
 			if self.cummulative_n_success_v!=0:
 				self.summ_writer.add_scalar("Routing Success:",self.cummulative_n_success_v,self.episode_number)
@@ -390,21 +403,16 @@ class AR_SUMO_Environment(gym.Env):
 		def close(self,sim_time):
 			if self.is_terminal(sim_time):
 				# self.summ_writer.close()
-				self.config.next_uniform_demand_index=0
+				if not self.config.training_mode:
+					self.config.next_uniform_demand_index=0
 				if self.log_data:
 					self.log_data()
 				return self.states,self.acts,self.next_states,self.rewds,self.dones,True
 			else:
 				return self.states,self.acts,self.next_states,self.rewds,self.dones,False
 		
-		def is_terminal(self,sim_time):
-			"""
-			check for some terminal condition. e.g. all vehicles exited the simulation or the time limit has passed
-
-			"""
-			return self.config.next_uniform_demand_index==len(self.config.uniform_demands)-1 and \
-					traci.simulation.getMinExpectedNumber() == 0
-			
+		def close_traci(self):
+			traci.close()
 
 		def init_traci(self):
 			sys.path.append(os.path.join(Constants['SUMO_PATH'], os.sep, 'tools'))
@@ -412,8 +420,6 @@ class AR_SUMO_Environment(gym.Env):
 			self.sumoCmd = [sumoBinary, '-S', '-d', Constants['Simulation_Delay'], "-c", Constants["SUMO_CONFIG"]]
 			traci.start(self.sumoCmd)
 		
-		def close_traci(self):
-			traci.close()
 
 
 		def get_queries(self):

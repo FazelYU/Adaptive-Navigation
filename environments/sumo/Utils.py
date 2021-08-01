@@ -117,8 +117,11 @@ class Utils(object):
         return state.unsqueeze(0)
 # ---------------------------------------------------------------------------  
     def generate_uniform_demand(self,sim_time):
-        trip=self.config.uniform_demands[self.config.next_uniform_demand_index]
-        self.config.next_uniform_demand_index+=1
+        if self.config.training_mode:
+            trip=self.create_sample_uniform_trip()
+        else:
+            trip=self.config.uniform_demands[self.config.next_uniform_demand_index]
+            self.config.next_uniform_demand_index+=1
 
         source_edge=trip[0]
         sink_edge=trip[1]
@@ -150,6 +153,16 @@ class Utils(object):
             # traci.vehicle.setColor("vehicle_{}".format(sim_time),(255,0,255))
         # traci.vehicle.setShapeClass("vehicle_{}".format(sim_time),"truck")
         return new_vcs,source_edge,self.network.get_edge_head_node(sink_edge),deadline
+
+    def create_sample_uniform_trip(self):
+        source_node=random.choice(self.agent_list)
+        sink_node=random.choice(self.agent_list)
+        while (sink_node==source_node):
+            sink_node=random.choice(self.agent_list)
+
+        source_edge=random.choice(self.network.get_out_edges(source_node))
+        sink_edge=random.choice(self.network.get_in_edges(sink_node))
+        return [source_edge,sink_edge]
 # ------------------------------------------------------------------ 
     def create_agent_dic(self):
         """dictionary of all agents, 

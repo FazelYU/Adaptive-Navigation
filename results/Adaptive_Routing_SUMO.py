@@ -38,16 +38,16 @@ config.seed = 1
 config.use_GPU = False
 config.exp_name="toronto"
 config.should_load_model=False
-config.should_save_model=False
+config.should_save_model=True
 routing_modes=["Q_routing","TTSPWRR","TTSP"]
 config.routing_mode=routing_modes[0]
 # -------------------------------------------------
-config.num_episodes_to_run = 10
+config.num_episodes_to_run = 1000
 config.Max_number_vc=200
 config.uniform_demand_period=5
 config.biased_demand_period=50
 config.traffic_period=500
-config.episode_period=5000
+config.max_num_sim_time_step_per_episode=5000
 
 config.demand_scale=1
 config.congestion_epsilon=0.25
@@ -70,6 +70,7 @@ config.runs_per_agent = 1
 config.overwrite_existing_results_file = True
 config.randomise_random_seed = True
 config.save_model = True
+config.training_mode=True
 config.hyperparameters = {
     "GAT":{
     'num_of_epochs': 10000, 
@@ -94,7 +95,7 @@ config.hyperparameters = {
         "epsilon_decay_rate_denominator": config.num_episodes_to_run/100,
         "stop_exploration_episode":config.num_episodes_to_run-10,
         "random_episodes_to_run":0,
-        "linear_hidden_units": [3,3],
+        "linear_hidden_units": [6,8,6],
         "learning_rate": 0.01,
         "buffer_size": 10000,
         "batch_size": 64,
