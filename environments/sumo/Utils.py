@@ -19,6 +19,7 @@ Constants = {
     "SUMO_CONFIG" : "./environments/sumo/networks/toronto/network.sumocfg", #path to your sumo config file
     "ROOT" : "./",
     "Network_XML" : "./environments/sumo/networks/toronto/toronto.net.xml",
+    'Analysis_Mode': False,
     'LOG' : False,
     'WARNINGS': False,
     'WHERE':False,
@@ -85,10 +86,11 @@ class Utils(object):
         action_mask,action_mask_index=self.get_edge_action_mask(source_edge,source_node)
         dest_embed=self.agent_id_embedding_dic[sink_node]
         embeding=dest_embed+self.get_network_state_embeding()
-        try:
-            assert(len(embeding)==self.get_state_diminsion(source_node))
-        except Exception as e:
-            breakpoint()
+        if Constants['Analysis_Mode']:
+            try:
+                assert(len(embeding)==self.get_state_diminsion(source_node))
+            except Exception as e:
+                breakpoint()
             
         return {"agent_id": source_node,
                 "action_mask": action_mask,
@@ -123,10 +125,7 @@ class Utils(object):
     def get_state_diminsion(self,agent_id): 
         return self.agnet_id_embedding_size+self.network_embed_dim
     
-    def get_flow_id(self,vehicle_id):
-        splited=vehicle_id.split('_')
-        assert(len(splited)==2)
-        return int(splited[1])
+
 
     def state2torch(self,state):
         state=torch.tensor(state, device=self.config.device, dtype=torch.float)
@@ -210,11 +209,11 @@ class Utils(object):
         for agent_id in self.agent_dic:
             position=traci.junction.getPosition(agent_id)
             unique_Z_ID=pm.interleave(int(position[0]),int(position[1]))
-            
-            try:
-                assert(unique_Z_ID not in z_order_dic)
-            except Exception as e:
-                breakpoint()
+            if Constants['Analysis_Mode']:
+                try:
+                    assert(unique_Z_ID not in z_order_dic)
+                except Exception as e:
+                    breakpoint()
 
             z_order_dic[unique_Z_ID]=agent_id
         sorted_z_vals=list(z_order_dic)
@@ -251,7 +250,8 @@ class Utils(object):
         paths={}
         for agent in self.agent_dic:
             for out_edge in self.network.get_out_edges(agent):
-                assert(out_edge not in paths)
+                if Constants['Analysis_Mode']:
+                    assert(out_edge not in paths)
                 paths[out_edge]=self.create_edge_path(out_edge)
         return paths
 
@@ -310,14 +310,16 @@ class Utils(object):
         return self.network.get_in_edges(node_id).index(edge_id)
 
     def get_edge_action_mask(self,edge_id,node_id):
-        assert(node_id==self.network.get_edge_head_node(edge_id))
+        if Constants['Analysis_Mode']:
+            assert(node_id==self.network.get_edge_head_node(edge_id))
         return self.edge_action_mask_dic[edge_id]
 
     def create_edge_action_mask_dic(self):
         edge_action_mask_dic={}
         for agent_id in self.agent_dic:
             for in_edge_id in self.network.get_in_edges(agent_id):
-                assert(in_edge_id not in edge_action_mask_dic)
+                if Constants['Analysis_Mode']:
+                    assert(in_edge_id not in edge_action_mask_dic)
                 edge_action_mask_dic[in_edge_id]=self.create_edge_action_mask(in_edge_id)
 
         return edge_action_mask_dic
