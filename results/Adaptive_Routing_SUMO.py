@@ -31,18 +31,20 @@ import xml.etree.ElementTree as ET
 treeTrips=ET.parse('./environments/sumo/toronto_trips.xml')
 rootTrips = treeTrips.getroot()
 
-device = torch.device("cpu" if torch.cuda.is_available() else "cpu") #device is cpu
 config = Config()
+config.device = torch.device("cuda" if torch.cuda.is_available() else "cpu") #device is cpu
 config.seed = 1
 
-config.use_GPU = False
-config.exp_name="toronto"
-config.should_load_model=False
-config.should_save_model=True
+config.use_GPU = True
+config.exp_name="toronto_QRouting"
+config.training_mode=False
+config.should_load_model=not config.training_mode
+config.should_save_model=config.training_mode
 routing_modes=["Q_routing","TTSPWRR","TTSP"]
 config.routing_mode=routing_modes[0]
 # -------------------------------------------------
-config.num_episodes_to_run = 1000
+config.num_episodes_to_run = 500 if config.training_mode else 10
+
 config.Max_number_vc=200
 config.uniform_demand_period=5
 config.biased_demand_period=50
@@ -50,8 +52,8 @@ config.traffic_period=500
 config.max_num_sim_time_step_per_episode=5000
 
 config.demand_scale=1
-config.congestion_epsilon=0.25
-config.congestion_speed_factor=0.1
+config.congestion_epsilon=0.2
+config.congestion_speed_factor=0.2
 
 config.biased_demand=[['23973402#0','435629850']] #list of the biased O-D demands 
 config.uniform_demands=[
@@ -59,6 +61,7 @@ config.uniform_demands=[
             for trip_xml in rootTrips.findall("trip")
             ]
 config.next_uniform_demand_index=0
+
 # -------------------------------------------------
 config.file_to_save_data_results = "Data_and_Graphs/Adaptive_Routing.pkl"
 config.file_to_save_results_graph = "Data_and_Graphs/Adaptive_Routing.png"
@@ -70,7 +73,6 @@ config.runs_per_agent = 1
 config.overwrite_existing_results_file = True
 config.randomise_random_seed = True
 config.save_model = True
-config.training_mode=True
 config.hyperparameters = {
     "GAT":{
     'num_of_epochs': 10000, 
@@ -123,13 +125,13 @@ gat = GAT(
         bias=config.hyperparameters["GAT"]['bias'],
         dropout=config.hyperparameters["GAT"]['dropout'],
         log_attention_weights=False  # no need to store attentions, used only in playground.py for visualizations
-    ).to(device)
+    ).to(config.device)
 
 gat.train()
 config.GAT_parameters=gat.parameters()
 config.GAT=gat
 
-config.environment = envm(config,device=device)
+config.environment = envm(config)
 
 if __name__== '__main__':
     AGENTS = [DQN] #DIAYN] # A3C] #SNN_HRL] #, DDQN]

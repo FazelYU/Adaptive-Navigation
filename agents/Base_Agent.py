@@ -39,7 +39,7 @@ class Base_Agent(object):
         self.max_rolling_score_seen = float("-inf")
         self.max_episode_score_seen = float("-inf")
         self.env_episode_number = 0
-        self.device = "cuda:0" if config.use_GPU else "cpu"
+        self.device = config.device
         self.visualise_results_boolean = config.visualise_individual_results
         self.turn_off_exploration = False
         gym.logger.set_level(40)  # stops it from printing an unnecessary warning
@@ -252,39 +252,34 @@ class Base_Agent(object):
         """Runs game to completion n times and then summarises results and saves model (if asked to)"""
         if num_episodes is None: num_episodes = self.config.num_episodes_to_run
         start = time.time()
+        
+        if not self.config.training_mode:
+            self.turn_off_any_epsilon_greedy_exploration()
 
+        if self.config.should_load_model:
+            self.load_policies()
+            breakpoint()
+        
         while self.env_episode_number < num_episodes:
+            self.run()
+            self.env_episode_number += 1
 
-            if self.config.should_load_model and self.env_episode_number==0:
-                self.load_policies()
-                breakpoint()
+            for agent_id in self.agent_dic:
+                # BUG: when memory is full the rate of the exploration stalls decreasing
+                # self.summ_writer.add_scalar('Memory_Length/'+str(agent_id),self.agent_dic[agent_id]["memory"].__len__(),self.env_episode_number)
 
-            if self.config.should_save_model and self.env_episode_number==num_episodes-1:
-                self.save_policies()
+                # if self.agent_dic[agent_id]["total_exp_count"]<self.agent_dic[agent_id]["memory"].__len__():
+                #     self.agent_dic[agent_id]["total_exp_count"]=self.agent_dic[agent_id]["memory"].__len__()
+                self.environment.utils.log("episodne number should be different for all agents",type='warn')
+                self.agent_dic[agent_id]["episode_number"]+=1
 
-            try:
-                
-                self.run()
-                self.env_episode_number += 1
+            if save_and_print_results: self.save_and_print_result()
 
-                for agent_id in self.agent_dic:
-                    # BUG: when memory is full the rate of the exploration stalls decreasing
-                    # self.summ_writer.add_scalar('Memory_Length/'+str(agent_id),self.agent_dic[agent_id]["memory"].__len__(),self.env_episode_number)
-
-                    # if self.agent_dic[agent_id]["total_exp_count"]<self.agent_dic[agent_id]["memory"].__len__():
-                    #     self.agent_dic[agent_id]["total_exp_count"]=self.agent_dic[agent_id]["memory"].__len__()
-                    self.environment.utils.log("episodne number should be different for all agents",type='warn')
-                    self.agent_dic[agent_id]["episode_number"]+=1
-
-                if save_and_print_results: self.save_and_print_result()
-            except KeyboardInterrupt:
-                num_episodes=self.env_episode_number+1
-                breakpoint()
 
 
         time_taken = time.time() - start
         if show_whether_achieved_goal: self.show_whether_achieved_goal()
-        if self.config.save_model: self.save_policies()
+        if self.config.should_save_model: self.save_policies()
         # self.summ_writer.close()
         return self.game_full_episode_scores, self.rolling_results, time_taken
 
@@ -299,21 +294,12 @@ class Base_Agent(object):
                 # creating dummy actions which will later be discarded by the environment
                 actions=[0]*len(self.environment.get_routing_queries())
             
-            try:
-                assert(len(actions)==len(self.environment.get_routing_queries()))
-                for ac,rq in zip(actions,routing_queries):
-                    agent_id=rq["agent_id"]
-                    assert(ac != None)
-                    assert(ac < self.get_action_space_size(agent_id))
-            except Exception as e:
-                breakpoint()
-
             num_new_exp=self.conduct_action(actions)
             
             if num_new_exp==0:
                 continue
 
-            if self.config.routing_mode=="Q_routing":
+            if self.config.training_mode:
                 self.save_experience()
                 for agent_id in self.agent_dic:
                     if self.time_for_q_network_to_learn(agent_id):

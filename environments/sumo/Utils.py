@@ -22,12 +22,22 @@ Constants = {
     'LOG' : False,
     'WARNINGS': False,
     'WHERE':False,
-    'Simulation_Delay' : '0'
+    'Simulation_Delay' : '0',
+
+    'il_lane_ID_subscribtion_code': 0x51,
+    'il_last_step_vc_IDs_subscribtion_code': 0x12,
+    'il_last_step_vc_count_subscribtion_code': 0x10,
+
+    'vc_road_ID_subscribtion_code': 0x50,
+    'vc_lane_ID_subscribtion_code':0x51
+    # The subscribtion codes are availabe in SUMO documentation for induction loops:
+    # https://sumo.dlr.de/docs/TraCI/Induction_Loop_Value_Retrieval.html#response_to_last_steps_vehicle_data_0x17 
+
     }
 
 class Utils(object):
     """docstring for Utils"""
-    def __init__(self,config,environment,network,Num_Flows,device,GAT,embed_network):
+    def __init__(self,config,environment,network,Num_Flows,GAT,embed_network):
         super(Utils, self).__init__()
         self.config=config
         self.network=network
@@ -40,7 +50,6 @@ class Utils(object):
         self.Num_Flow_Types=3
         self.slow_vc_speed=7
         self.fast_vc_speed=2*self.slow_vc_speed
-        self.device=device
         self.adjacency_list_dict={}
         self.node_features_dic={}
 
@@ -59,6 +68,13 @@ class Utils(object):
 
         self.induction_loops=[il for il in traci.inductionloop.getIDList() if "TLS" not in il]
 
+        for il in self.induction_loops:
+            traci.inductionloop.subscribe(il,[\
+                                            Constants['il_last_step_vc_count_subscribtion_code'],\
+                                            Constants['il_last_step_vc_IDs_subscribtion_code']
+                                            ])
+
+        # subscribe the induction loops
         self.network_state=[]
         self.dynamic_paths=self.path_dic #all edges are prone to congestion
 
@@ -113,7 +129,7 @@ class Utils(object):
         return int(splited[1])
 
     def state2torch(self,state):
-        state=torch.tensor(state, device=self.device, dtype=torch.float)
+        state=torch.tensor(state, device=self.config.device, dtype=torch.float)
         return state.unsqueeze(0)
 # ---------------------------------------------------------------------------  
     def generate_uniform_demand(self,sim_time):
@@ -125,15 +141,19 @@ class Utils(object):
 
         source_edge=trip[0]
         sink_edge=trip[1]
+        destinatino_node=self.network.get_edge_head_node(sink_edge)
 
         new_vcs=[]
-        traci.route.add("trip_{}".format(sim_time),[source_edge,sink_edge])
+        trip_id="trip_{}".format(sim_time)
+        traci.route.add(trip_id,[source_edge,sink_edge])
         deadline=4*self.get_shortest_path_time(self.network.get_edge_tail_node(source_edge),self.network.get_edge_head_node(sink_edge))\
                     +sim_time
 
         for i in range(0,self.config.demand_scale):
-            traci.vehicle.add("vehicle_{}_{}".format(sim_time,i),"trip_{}".format(sim_time))
-            new_vcs.append("vehicle_{}_{}".format(sim_time,i))
+            vid="vehicle_{}_{}_{}".format(sim_time,i,destinatino_node)
+            traci.vehicle.add(vid,trip_id)
+            new_vcs.append(vid)
+            # self.subscribe_vehicle(vid)
         # traci.vehicle.setColor("vehicle_{}".format(sim_time),(255,0,255))
         # traci.vehicle.setShapeClass("vehicle_{}".format(sim_time),"truck")
         return new_vcs,source_edge,self.network.get_edge_head_node(sink_edge),deadline
@@ -141,19 +161,26 @@ class Utils(object):
     def generate_biased_demand(self,sim_time,trip):                  
         source_edge=trip[0]
         sink_edge=trip[1]
+        destinatino_node=self.network.get_edge_head_node(sink_edge)
+        trip_id="biased_trip_{}".format(sim_time)
 
         new_vcs=[]
-        traci.route.add("biased_trip_{}".format(sim_time),[source_edge,sink_edge])
+        traci.route.add(trip_id,[source_edge,sink_edge])
         deadline=4*self.get_shortest_path_time(self.network.get_edge_tail_node(source_edge),self.network.get_edge_head_node(sink_edge))\
                     +sim_time
 
         for i in range(0,self.config.demand_scale):
-            traci.vehicle.add("biased_vehicle_{}_{}".format(sim_time,i),"biased_trip_{}".format(sim_time))
-            new_vcs.append("biased_vehicle_{}_{}".format(sim_time,i))
-            # traci.vehicle.setColor("vehicle_{}".format(sim_time),(255,0,255))
-        # traci.vehicle.setShapeClass("vehicle_{}".format(sim_time),"truck")
+            vid="biased_vehicle_{}_{}_{}".format(sim_time,i,destinatino_node)
+            traci.vehicle.add(vid,trip_id)
+            new_vcs.append(vid)
+            # self.subscribe_vehicle(vid)
         return new_vcs,source_edge,self.network.get_edge_head_node(sink_edge),deadline
-
+    
+    def subscribe_vehicle(self,vc):
+        traci.vehicle.subscribe(vc,[\
+            Constants['vc_lane_ID_subscribtion_code'],
+            Constants['vc_road_ID_subscribtion_code']
+            ])
     def create_sample_uniform_trip(self):
         source_node=random.choice(self.agent_list)
         sink_node=random.choice(self.agent_list)
@@ -269,11 +296,12 @@ class Utils(object):
     def get_shortest_path_time(self,source,destination):
         return self.network.all_pairs_shortest_path[source][destination]
  
-    def get_induction_loop_edge(self,inductionloop):
-        return inductionloop.split('_')[1]
+    # def get_induction_loop_edge(self,inductionloop):
+    #     return inductionloop.split('_')[1]
 
-    def get_lane_edge(self,lane_ID):
-        return traci.lane.getEdgeID(lane_ID)
+    # def get_lane_edge(self,lane_ID):
+    #     # +++
+    #     return traci.lane.getEdgeID(lane_ID)
 
     def get_edge_index_among_node_out_edges(self,edge_id,node_id):
         return self.network.get_out_edges(node_id).index(edge_id)    
@@ -298,7 +326,7 @@ class Utils(object):
         node_id=self.network.get_edge_head_node(edge_id)
         node_out_edges=self.network.get_out_edges(node_id)
         edge_connections=self.network.get_edge_connections(edge_id)
-        action_mask=torch.tensor([-math.inf if edge not in  edge_connections else 0 for edge in node_out_edges])
+        action_mask=torch.tensor([-math.inf if edge not in  edge_connections else 0 for edge in node_out_edges],device=self.config.device)
         action_mask_index=[i for i in range(len(node_out_edges)) if node_out_edges[i] in edge_connections]
         return action_mask,action_mask_index
     
@@ -418,7 +446,7 @@ class Utils(object):
         # shape = (2, E), where E is the number of edges in the graph
         edge_index = numpy.row_stack((source_nodes_ids, target_nodes_ids))
 
-        return torch.tensor(edge_index,dtype=torch.long,device=self.device)
+        return torch.tensor(edge_index,dtype=torch.long,device=self.config.device)
 
     def update_and_evolve_node_features(self):
         self.update_node_features()
@@ -438,4 +466,4 @@ class Utils(object):
                     breakpoint()
 
     def get_node_features(self):
-        return torch.tensor([*self.node_features_dic.values()],dtype=torch.float,device=self.device)
+        return torch.tensor([*self.node_features_dic.values()],dtype=torch.float,device=self.config.device)

@@ -40,7 +40,7 @@ def reposition_il(edge_xml,lane_xml,offset):
     else:
         if edge_xml.attrib['id'] not in small_edges:
             small_edges[edge_xml.attrib['id']]=position
-        position=0
+        position=5
     induction_loops_dic[lane_xml.attrib["id"]]=str(position)
 
 init_traci()
@@ -63,10 +63,10 @@ for edge_xml in rootNET.findall('edge'):
         continue
     # create edge and edge system objects store, them keyed by id
     for lane_xml in edge_xml.findall('lane'):
-        if Decimal(lane_xml.attrib['speed'])>=25:
-            reposition_il(edge_xml,lane_xml,120)
+        if Decimal(lane_xml.attrib['speed'])>=50:
+            reposition_il(edge_xml,lane_xml,240)
         else:
-            reposition_il(edge_xml,lane_xml,40)
+            reposition_il(edge_xml,lane_xml,70)
 
 
 

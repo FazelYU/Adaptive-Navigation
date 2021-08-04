@@ -55,6 +55,6 @@ for index in range(0,2000):
     rootTrips.append(trip)
 
 treeTrips = ET.ElementTree(rootTrips)
-
+breakpoint()
 with open('./environments/sumo/toronto_trips.xml', 'w') as f:
     treeTrips.write(f, encoding='unicode')

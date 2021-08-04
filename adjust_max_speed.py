@@ -47,8 +47,11 @@ for edge_xml in rootNET.findall('edge'):
         continue
 
     for lane_xml in edge_xml.findall('lane'):
-        if Decimal(lane_xml.attrib["speed"])>25:
-            lane_xml.attrib["speed"]="11.11"
+        if Decimal(lane_xml.attrib["speed"])<25:
+            lane_xml.attrib["speed"]="20"
+        else:
+            lane_xml.attrib["speed"]="50"
+
            
 breakpoint()
 

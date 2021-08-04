@@ -13,14 +13,14 @@ from torch.utils.tensorboard import SummaryWriter
 class AR_SUMO_Environment(gym.Env):
 
 		environment_name = "Adaptive Routing SUMO"
-		def __init__(self,config, device):
+		def __init__(self,config):
 			#create the road network
 			
 			self.config=config
 			self.init_traci()		
 			self.network = RoadNetworkModel(Constants["ROOT"], Constants["Network_XML"])
 			# breakpoint()
-			self.utils=Utils(config=config,environment=self,network=self.network,Num_Flows=1,device=device,GAT=config.GAT,embed_network=False)
+			self.utils=Utils(config=config,environment=self,network=self.network,Num_Flows=1,GAT=config.GAT,embed_network=False)
 			# breakpoint()
 			# traci.edge.adaptTraveltime('gneE6',4*traci.edge.getTraveltime('gneE6'))
 
@@ -39,7 +39,6 @@ class AR_SUMO_Environment(gym.Env):
 			self.rewds=[]
 			self.dones=[]
 			# self.Max_Sim_Time=Max_Sim_Time
-			self.device=device
 			self.lanes_dic={}
 
 			# self.stochastic_actions_probability = 0
@@ -66,9 +65,9 @@ class AR_SUMO_Environment(gym.Env):
 						
 		def reset(self,episode,config):
 			self.episode_number=episode
-			if episode==config.num_episodes_to_run-1:
-				Constants["LOG"]=True
-				breakpoint()
+			# if episode==config.num_episodes_to_run-1:
+			# 	Constants["LOG"]=True
+			# 	breakpoint()
 			# self.vehicles={}
 			# self.refresh_routing_queries()
 			# self.refresh_exp()
@@ -103,10 +102,11 @@ class AR_SUMO_Environment(gym.Env):
 			traci.simulationStep()
 
 			try:
-				assert(traci.simulation.getStartingTeleportNumber()==0)
+				TelNum=traci.simulation.getStartingTeleportNumber()
+				assert(TelNum==0)
 				# assert(traci.simulation.getArrivedNumber()==0)
 			except Exception as e:
-				self.utils.log("{} Telepoting Vehicle Found!".format(traci.simulation.getStartingTeleportNumber()))
+				self.utils.log("{} Telepoting Vehicle Found!".format(TelNum))
 				# breakpoint()
 
 				# self.utils.update_and_evolve_node_features()
@@ -122,8 +122,7 @@ class AR_SUMO_Environment(gym.Env):
 #-------------------------------------------------------------
 			routing_queries,exiting_queries=self.get_queries()
 
-			for vc in routing_queries:
-				road=traci.vehicle.getRoadID(vc)
+			for (vc,road,lane) in routing_queries:
 				try:					
 					assert(road in self.network.edge_ID_dic)
 				except:
@@ -176,11 +175,11 @@ class AR_SUMO_Environment(gym.Env):
 				except Exception as e:
 					breakpoint()
 				
-				self.update_env_vc_info(vc, sim_time,road,next_agent_id,next_state)
+				self.update_env_vc_info(vc, sim_time,road,lane,next_agent_id,next_state)
 				self.routing_queries.append(vc)
 				self.routing_queries_states.append(next_state)
 
-			for vc in exiting_queries:
+			for (vc,road,lane) in exiting_queries:
 				if not self.vehicles[vc]["is_new"]:
 					reward=self.get_reward(self.vehicles[vc]["time"],sim_time)
 
@@ -229,8 +228,7 @@ class AR_SUMO_Environment(gym.Env):
 
 				next_roads = self.utils.get_next_road_IDs(agent_id,ac)
 				current_road = self.vehicles[vc]["road"]
-				assert(traci.vehicle.getRoadID(vc)==current_road)
-				current_lane=traci.vehicle.getLaneID(vc)
+				current_lane=self.vehicles[vc]["lane"]
 				self.utils.log("agnet {} generated routing response {} for {}".format(agent_id,[current_road]+ next_roads,vc))
 
 				if self.config.routing_mode=="TTSP":
@@ -250,7 +248,7 @@ class AR_SUMO_Environment(gym.Env):
 				except Exception as e:
 					self.utils.log('Failed! Action {} is not valid @ road {}'.format(ac,current_road))
 					breakpoint()
-					self.set_substitue_action(vc,current_road,current_lane,agent_id)
+					# self.set_substitue_action(vc,current_road,current_lane,agent_id)
 
 		def is_action_valid(self,agent_id,action):
 			return action<self.utils.agent_dic[agent_id][1]
@@ -258,32 +256,32 @@ class AR_SUMO_Environment(gym.Env):
 		def is_action_valid(self,road,action):
 			pass
 
-		def set_substitue_action(self,vc,current_road,current_lane,agent_id):
-			self.vehicles[vc]["is_action_valid"]=False
-			self.vehicles[vc]["substitute_action"]=self.get_subtitue_action(current_lane,agent_id)
-			try:
-				assert(self.vehicles[vc]["substitute_action"])!= None
-				assert(self.vehicles[vc]["substitute_action"]<self.utils.agent_dic[agent_id][1])
-			except Exception as e:
-				breakpoint()
-			next_roads = self.utils.get_next_road_IDs(agent_id,self.vehicles[vc]["substitute_action"])
-			self.cummulative_n_invalid_actions+=1
-			try:
-				traci.vehicle.setRoute(vc, [current_road]+ next_roads)	
-				self.utils.log("agnet {} generated substitute routing response {} for {}".format(agent_id,[current_road]+ next_roads,vc))
-			except Exception as e:
-				self.utils.log("error in setting the substitute route",type='err')
-				breakpoint()
+		# def set_substitue_action(self,vc,current_road,current_lane,agent_id):
+		# 	self.vehicles[vc]["is_action_valid"]=False
+		# 	self.vehicles[vc]["substitute_action"]=self.get_subtitue_action(current_lane,agent_id)
+		# 	try:
+		# 		assert(self.vehicles[vc]["substitute_action"])!= None
+		# 		assert(self.vehicles[vc]["substitute_action"]<self.utils.agent_dic[agent_id][1])
+		# 	except Exception as e:
+		# 		breakpoint()
+		# 	next_roads = self.utils.get_next_road_IDs(agent_id,self.vehicles[vc]["substitute_action"])
+		# 	self.cummulative_n_invalid_actions+=1
+		# 	try:
+		# 		traci.vehicle.setRoute(vc, [current_road]+ next_roads)	
+		# 		self.utils.log("agnet {} generated substitute routing response {} for {}".format(agent_id,[current_road]+ next_roads,vc))
+		# 	except Exception as e:
+		# 		self.utils.log("error in setting the substitute route",type='err')
+		# 		breakpoint()
 
-		def get_subtitue_action(self, lane_ID,agent_id):
-			"""
-			return a random number between 1 and len(self.utils.get_out_edges(self.g)t_intersec_id(vc_ID)])
-			"""
-			edge_ID=self.utils.get_lane_edge(lane_ID)
-			connections=self.network.get_edge_connections(edge_ID)
-			subs_edge=random.choice(connections)
-			subs_act=self.utils.get_edge_index_among_node_out_edges(subs_edge,agent_id)
-			return subs_act
+		# def get_subtitue_action(self, lane_ID,agent_id):
+		# 	"""
+		# 	return a random number between 1 and len(self.utils.get_out_edges(self.g)t_intersec_id(vc_ID)])
+		# 	"""
+		# 	edge_ID=self.utils.get_lane_edge(lane_ID)
+		# 	connections=self.network.get_edge_connections(edge_ID)
+		# 	subs_edge=random.choice(connections)
+		# 	subs_act=self.utils.get_edge_index_among_node_out_edges(subs_edge,agent_id)
+		# 	return subs_act
 		
 
 
@@ -304,10 +302,11 @@ class AR_SUMO_Environment(gym.Env):
 				"is_new":True
 				}
 
-		def update_env_vc_info(self,vc,time,road,agent_id,state):	
+		def update_env_vc_info(self,vc,time,road,lane,agent_id,state):	
 			self.utils.log(" {} sent RQ to agent {}".format(vc,agent_id))
 			self.vehicles[vc]["time"]=time
 			self.vehicles[vc]["road"]=road
+			self.vehicles[vc]["lane"]=lane
 			self.vehicles[vc]["agent_id"]=agent_id
 			self.vehicles[vc]["state"]=state
 			self.vehicles[vc]["is_new"]=False
@@ -355,8 +354,8 @@ class AR_SUMO_Environment(gym.Env):
 
 		
 		def change_traffic_condition(self,time):
-			# if time%self.config.traffic_period==1:
-			# 	self.utils.set_network_state()
+			if time%self.config.traffic_period==1:
+				self.utils.set_network_state()
 			
 			if self.should_insert_new_vc(time):
 				if time%self.config.uniform_demand_period==1:
@@ -427,29 +426,37 @@ class AR_SUMO_Environment(gym.Env):
 			routing_queries=set()
 			exiting_queries=set()
 			self.utils.log("a vehicle can be detected twice in a single timestep!",type='warn')
+			AllSubsResult=traci.inductionloop.getAllSubscriptionResults()
+			for il in AllSubsResult:
+				tvcs=AllSubsResult[il][Constants['il_last_step_vc_IDs_subscribtion_code']]
+				if len(tvcs)>0:
+					split=il.split('_')
+					il_edge=split[1]
+					il_lane=split[1]+'_'+split[2]
+					il_edge_head=self.network.get_edge_head_node(il_edge)
+					# il_lane=
+					for vc in tvcs:
+						# lane_ID=il[Constants['il_lane_ID_subscribtion_code']]
+						# breakpoint()
+						if self.has_exited(vc) or self.has_transited(vc,il_edge):
+							continue
+						if self.has_arrived(vc,il_edge_head):
+							exiting_queries.add((vc,il_edge,il_lane))
+						else:
+							routing_queries.add((vc,il_edge,il_lane))					
 
-			for il in self.utils.induction_loops:
-				for vc in traci.inductionloop.getLastStepVehicleIDs(il):
-					if self.has_exited(vc) or self.has_transited(vc):
-						continue
-					if self.has_arrived(il,vc):
-						exiting_queries.add(vc)
-					else:
-						routing_queries.add(vc)
 			return routing_queries,exiting_queries
 		
 		def has_exited(self,vc):
 			return vc not in self.vehicles
 
-		def has_transited(self, vc):
+		def has_transited(self, vc,il_road):
 			if self.vehicles[vc]["is_new"]:
 				return False
-			return self.vehicles[vc]["road"]==traci.vehicle.getRoadID(vc)
+			return self.vehicles[vc]["road"]==il_road
 
-		def has_arrived(self,il,vc):
-			il_edge=self.utils.get_induction_loop_edge(il)
-			return self.network.get_edge_head_node(il_edge)\
-					==self.vehicles[vc]['destination']
+		def has_arrived(self,vc,il_road_head):
+			return il_road_head==self.vehicles[vc]['destination']
 
 		def get_routing_queries(self):
 			return self.routing_queries_states
