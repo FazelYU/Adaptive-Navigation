@@ -32,28 +32,33 @@ treeTrips=ET.parse('./environments/sumo/toronto_trips.xml')
 rootTrips = treeTrips.getroot()
 
 config = Config()
+config.use_GPU = True
+config.training_mode=True
+routing_modes=["Q_routing_0_hop","Q_routing","TTSPWRR","TTSP"]
+config.routing_mode=routing_modes[2]
+config.exp_name="toronto_"+config.routing_mode
+
 config.device = torch.device("cuda" if torch.cuda.is_available() else "cpu") #device is cpu
 config.seed = 1
+config.envm_seed=100
+config.should_load_model= False if  config.routing_mode== "TTSPWRR" or \
+                                    config.routing_mode=="TTSP" else \
+                                    not config.training_mode
 
-config.use_GPU = True
-config.exp_name="toronto_QRouting"
-config.training_mode=False
-config.should_load_model=not config.training_mode
 config.should_save_model=config.training_mode
-routing_modes=["Q_routing","TTSPWRR","TTSP"]
-config.routing_mode=routing_modes[0]
 # -------------------------------------------------
 config.num_episodes_to_run = 500 if config.training_mode else 10
 
 config.Max_number_vc=200
 config.uniform_demand_period=5
-config.biased_demand_period=50
+config.biased_demand_2_uniform_demand_ratio=0.1
+
 config.traffic_period=500
 config.max_num_sim_time_step_per_episode=5000
 
 config.demand_scale=1
-config.congestion_epsilon=0.2
-config.congestion_speed_factor=0.2
+config.congestion_epsilon=0.25
+config.congestion_speed_factor=0.1
 
 config.biased_demand=[['23973402#0','435629850']] #list of the biased O-D demands 
 config.uniform_demands=[
@@ -61,7 +66,8 @@ config.uniform_demands=[
             for trip_xml in rootTrips.findall("trip")
             ]
 config.next_uniform_demand_index=0
-
+config.num_biased_vc_dispatched=0
+config.num_uniform_vc_dispatched=0
 # -------------------------------------------------
 config.file_to_save_data_results = "Data_and_Graphs/Adaptive_Routing.pkl"
 config.file_to_save_results_graph = "Data_and_Graphs/Adaptive_Routing.png"

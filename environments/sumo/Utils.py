@@ -30,9 +30,23 @@ Constants = {
     'il_last_step_vc_count_subscribtion_code': 0x10,
 
     'vc_road_ID_subscribtion_code': 0x50,
-    'vc_lane_ID_subscribtion_code':0x51
-    # The subscribtion codes are availabe in SUMO documentation for induction loops:
-    # https://sumo.dlr.de/docs/TraCI/Induction_Loop_Value_Retrieval.html#response_to_last_steps_vehicle_data_0x17 
+    'vc_lane_ID_subscribtion_code':0x51,
+    # # 'congestion_prone_arterials':{1:['207223487#0','124690744#0','30430773#0','4281719#0','43128290','gneE18'],
+    # #                             -1:['-gneE18','204493904#0','-4281719#2','-234733018#0','-354354332#2','-207223487#1','-33910433#2'],
+    # #                             2:['695753527#1','277877819#0','263506114#5','33023072#0.23','33023075#0','445695121','33024556#0','33025451#0','33025456','449550551#0']
+    # #                             -2:['-695753527#1','-277877819#2','-263506114#9.27','-33023072#3','-33023075#4','-33024553#3','-33024556#1','-33025451#1','-33025456','-449550551#2']
+    # #                             3:['445865881','4651746#0','222151618#5','5686883#0','220918438#0','446971622#0','4321248#0','35159934#0','248489460#0','35155500','35155501','-446994466#4']
+    # #                             -3:[]
+    # #                             4:[]
+    # #                             -4:[]
+    # #                             5:[]
+    # #                             -5:[]
+    # #                             6:[]
+    # #                             -6:[]
+    # #                                 }
+    # 'congestion_prone_arterials':{
+    # 1:['21631714','24959524','20979763','20964581','20964462','20964582','20953780','gneJ0']
+    # }
 
     }
 
@@ -41,6 +55,8 @@ class Utils(object):
     def __init__(self,config,environment,network,Num_Flows,GAT,embed_network):
         super(Utils, self).__init__()
         self.config=config
+        self.seeded_random_generator=numpy.random.RandomState(config.envm_seed)
+        # breakpoint()
         self.network=network
         self.Num_Flows=Num_Flows
 
@@ -85,7 +101,10 @@ class Utils(object):
     def get_state(self,source_edge,source_node,sink_node):
         action_mask,action_mask_index=self.get_edge_action_mask(source_edge,source_node)
         dest_embed=self.agent_id_embedding_dic[sink_node]
-        embeding=dest_embed+self.get_network_state_embeding()
+        source_node_state=self.get_node_state(source_node)
+        if 1 in source_node_state:
+            breakpoint()
+        embeding=dest_embed+source_node_state
         if Constants['Analysis_Mode']:
             try:
                 assert(len(embeding)==self.get_state_diminsion(source_node))
@@ -107,23 +126,32 @@ class Utils(object):
         
         return self.network_state
             # return[1]
+    def get_node_state(self,node_id):
+        if self.config.routing_mode=='Q_routing_0_hop':
+            state=[1 if self.network.edge_speed_dic[edge]['is_congested'] else 0 for edge in self.network.get_out_edges(node_id)]
+            return state
+        return [] 
 
     def set_network_state(self):
+        # the network state changes randomly. However, the random changes are the same among the benchmarks.
         self.network_state=[]
         for path_key in self.dynamic_paths:
-            if random.random()>self.config.congestion_epsilon:
+            if self.seeded_random_generator.random()>self.config.congestion_epsilon:
                 # no congestion for the edge
                 for edge in self.dynamic_paths[path_key]:
-                    traci.edge.setMaxSpeed(edge,self.network.edge_speed_dic[edge])
-
+                    traci.edge.setMaxSpeed(edge,self.network.edge_speed_dic[edge]['speed'])
+                    self.network.edge_speed_dic[edge]['is_congested']=False
             else:
                 #congestion 
                 for edge in self.dynamic_paths[path_key]:
-                    traci.edge.setMaxSpeed(edge,self.network.edge_speed_dic[edge]*self.config.congestion_speed_factor)
+                    traci.edge.setMaxSpeed(edge,self.network.edge_speed_dic[edge]['speed']*self.config.congestion_speed_factor)
+                    self.network.edge_speed_dic[edge]['is_congested']=True
 
 
-    def get_state_diminsion(self,agent_id): 
-        return self.agnet_id_embedding_size+self.network_embed_dim
+    def get_state_diminsion(self,node_id): 
+        if self.config.routing_mode=='Q_routing_0_hop':
+            return self.agnet_id_embedding_size+len(self.network.get_out_edges(node_id))
+        return self.agnet_id_embedding_size
     
 
 
@@ -136,8 +164,9 @@ class Utils(object):
             trip=self.create_sample_uniform_trip()
         else:
             trip=self.config.uniform_demands[self.config.next_uniform_demand_index]
-            self.config.next_uniform_demand_index+=1
 
+        self.config.next_uniform_demand_index+=1
+        self.config.num_uniform_vc_dispatched+=1
         source_edge=trip[0]
         sink_edge=trip[1]
         destinatino_node=self.network.get_edge_head_node(sink_edge)
@@ -162,6 +191,7 @@ class Utils(object):
         sink_edge=trip[1]
         destinatino_node=self.network.get_edge_head_node(sink_edge)
         trip_id="biased_trip_{}".format(sim_time)
+        self.config.num_biased_vc_dispatched+=1
 
         new_vcs=[]
         traci.route.add(trip_id,[source_edge,sink_edge])

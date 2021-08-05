@@ -206,7 +206,10 @@ class RoadNetworkModel():
         for edge in self.edge_ID_dic}
 
     def creat_edge_speed_dic(self):
-        return {edgeID: self.get_edge_speed(self.get_edge(edgeID)) 
+        return {edgeID: {
+                    'speed':self.get_edge_speed(self.get_edge(edgeID)),
+                    'is_congested':False 
+                    } 
         for edgeID in self.edge_ID_dic}
 
     def get_edge(self,edgeID):

@@ -288,11 +288,13 @@ class Base_Agent(object):
         self.reset_game()
         while not self.done:
             routing_queries=self.environment.get_routing_queries()
-            if self.config.routing_mode=="Q_routing":
-                actions = self.pick_action(routing_queries)
-            else:
-                # creating dummy actions which will later be discarded by the environment
+            if  self.config.routing_mode=="TTSP" or \
+                self.config.routing_mode=="TTSPWRR":
                 actions=[0]*len(self.environment.get_routing_queries())
+                # creating dummy actions which will later be discarded by the environment
+            else:
+                actions = self.pick_action(routing_queries)
+
             
             num_new_exp=self.conduct_action(actions)
             

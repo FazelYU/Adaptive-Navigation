@@ -3,7 +3,6 @@ from environments.sumo.Utils import Utils
 from environments.sumo.model.network import RoadNetworkModel
 import os, sys
 import traci
-import random
 import math
 import gym
 from gym import spaces
@@ -61,10 +60,18 @@ class AR_SUMO_Environment(gym.Env):
 			self.cummulative_n_invalid_actions=0
 			self.should_log_data=True
 			if self.should_log_data:
-				self.summ_writer = SummaryWriter()
+				self.summ_writer = SummaryWriter(filename_suffix=self.config.routing_mode)
 						
 		def reset(self,episode,config):
 			self.episode_number=episode
+			self.cummulative_tt=0
+			self.cummulative_n_success_v=0
+			self.cummulative_n_failed_v=0
+			self.cummulative_n_invalid_actions=0
+			if not self.config.training_mode:
+				self.config.next_uniform_demand_index=0
+				self.config.num_biased_vc_dispatched=0
+				self.config.num_uniform_vc_dispatched=0
 			# if episode==config.num_episodes_to_run-1:
 			# 	Constants["LOG"]=True
 			# 	breakpoint()
@@ -356,7 +363,9 @@ class AR_SUMO_Environment(gym.Env):
 					for vid in vids:
 						self.add_env_vc(vid,road,time,destination,dead_line)
 							
-				if time%self.config.biased_demand_period==1:
+				if self.config.num_uniform_vc_dispatched>0 and \
+				self.config.num_biased_vc_dispatched/self.config.num_uniform_vc_dispatched > \
+				self.config.biased_demand_2_uniform_demand_ratio:
 					for trip in self.config.biased_demand:			
 						vids,road,destination,dead_line=self.utils.generate_biased_demand(time,trip)
 						for vid in vids:
@@ -369,14 +378,14 @@ class AR_SUMO_Environment(gym.Env):
 
 			# we are testing. don't insert vehicles if reached the end of the test demand data.
 			return 	traci.vehicle.getIDCount()<self.config.Max_number_vc and\
-					self.config.next_uniform_demand_index<len(self.config.uniform_demands)-1
+					self.config.next_uniform_demand_index<len(self.config.uniform_demands)
 
 		
 		def is_terminal(self,sim_time):
 			if self.config.training_mode:
 				return sim_time%self.config.max_num_sim_time_step_per_episode==self.config.max_num_sim_time_step_per_episode-1
 
-			return 	self.config.next_uniform_demand_index==len(self.config.uniform_demands)-1 \
+			return 	self.config.next_uniform_demand_index==len(self.config.uniform_demands) \
 					and traci.simulation.getMinExpectedNumber() == 0
 			
 		def log_data(self):
@@ -385,19 +394,13 @@ class AR_SUMO_Environment(gym.Env):
 				self.summ_writer.add_scalar("AVTT:",self.cummulative_tt/self.cummulative_n_success_v,self.episode_number)
 			# self.summ_writer.add_scalar("Routing Succcess:",self.cummulative_n_success_v,self.episode_number)
 			# self.summ_writer.add_scalar("Routing failure:",self.cummulative_n_failed_v,self.episode_number)
-			if self.config.routing_mode=="Q_routing":
-				self.summ_writer.add_scalar("Invalid Action:",self.cummulative_n_invalid_actions,self.episode_number)
 			
-			self.cummulative_tt=0
-			self.cummulative_n_success_v=0
-			self.cummulative_n_failed_v=0
-			self.cummulative_n_invalid_actions=0
+
 
 		def close(self,sim_time):
 			if self.is_terminal(sim_time):
 				# self.summ_writer.close()
-				if not self.config.training_mode:
-					self.config.next_uniform_demand_index=0
+
 				if self.log_data:
 					self.log_data()
 				return self.states,self.acts,self.next_states,self.rewds,self.dones,True
