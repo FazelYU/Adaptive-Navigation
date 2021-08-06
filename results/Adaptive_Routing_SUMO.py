@@ -35,7 +35,7 @@ config = Config()
 config.use_GPU = True
 config.training_mode=True
 routing_modes=["Q_routing_0_hop","Q_routing","TTSPWRR","TTSP"]
-config.routing_mode=routing_modes[2]
+config.routing_mode=routing_modes[0]
 config.exp_name="toronto_"+config.routing_mode
 
 config.device = torch.device("cuda" if torch.cuda.is_available() else "cpu") #device is cpu

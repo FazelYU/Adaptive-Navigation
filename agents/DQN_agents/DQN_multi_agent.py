@@ -29,8 +29,7 @@ class DQN(Base_Agent):
             # if isinstance(state, np.int64) or isinstance(state, int): state = np.array([state])
             agent_id=self.get_agent_id(state)
             q_network_local=self.agent_dic[agent_id]["NN"]
-            embeding=torch.tensor(state['embeding'],dtype=torch.float).unsqueeze(0).to(self.device)
-            
+            embeding=state['embeding'].unsqueeze(0)
             q_network_local.eval() #puts network in evaluation mode
             with torch.no_grad():
                 action_values = q_network_local(embeding)
@@ -62,17 +61,12 @@ class DQN(Base_Agent):
     def compute_loss(self, agent_id, states, next_states, rewards, actions, dones):
         """Computes the loss required to train the Q network"""
         with torch.no_grad():
-            Q_targets = self.compute_q_targets(next_states, rewards, dones)
+            Q_values_next_states = self.compute_q_values_for_next_states(next_states,dones)
+            Q_targets = rewards + (self.hyperparameters["discount_rate"] * Q_values_next_states * (1 - dones))
         
         Q_expected = self.compute_expected_q_values(agent_id, states, actions)
         loss = F.mse_loss(Q_expected, Q_targets)
         return loss
-
-    def compute_q_targets(self, next_states, rewards, dones):
-        """Computes the q_targets we will compare to predicted q values to create the loss to train the Q network"""
-        Q_targets_next = self.compute_q_values_for_next_states(next_states,dones)
-        Q_targets = self.compute_q_values_for_current_states(rewards, Q_targets_next, dones)
-        return Q_targets
 
     def compute_q_values_for_next_states(self, next_states,dones):
         """Computes the q_values for next state we will use to create the loss to train the Q network"""
@@ -99,26 +93,22 @@ class DQN(Base_Agent):
         for agent_id in masks_dic:
             agent_mask=torch.Tensor(masks_dic[agent_id]["mask"]).unsqueeze(1).to(self.device,dtype=torch.bool)
             agent_states=next_states[masks_dic[agent_id]["index"]]
-            agent_states_embedings=[agent_state[0]['embeding'] for agent_state in agent_states]
-            agent_states_embedings=torch.tensor(agent_states_embedings,dtype=torch.float).to(self.device)
+            
+            agent_states_embedings=torch.vstack([agent_state[0]['embeding'] for agent_state in agent_states])
+            agent_states_action_mask=torch.vstack([agent_state[0]['action_mask'] for agent_state in agent_states])
+            
             try:
-                agent_Q_targets_next=self.agent_dic[agent_id]["NN"](agent_states_embedings).detach().max(1)[0].unsqueeze(1)
+                agent_Q_targets_next=(self.agent_dic[agent_id]["NN"](agent_states_embedings)+agent_states_action_mask)\
+                                    .detach().max(1)[0].unsqueeze(1)
             except Exception as e:
                 breakpoint()
             Q_targets_next.masked_scatter_(agent_mask,agent_Q_targets_next)
-
         return Q_targets_next
 
                                                                                                         # max(1): find the max in every row of the batch
                                                                                                         # max(0): find the max in every column of the batch
                                                                                                         # max(1)[0]: value of the max in every row of the batch
                                                                                                         # max(1)[1]: index of the max in every row of the batch
-        
-    def compute_q_values_for_current_states(self, rewards, Q_targets_next, dones):
-        """Computes the q_values for current state we will use to create the loss to train the Q network"""
-        # TODO: why (1-dones)?
-        Q_targets_current = rewards + (self.hyperparameters["discount_rate"] * Q_targets_next * (1 - dones))
-        return Q_targets_current
 
     def compute_expected_q_values(self, agent_id, states, actions):
         """Computes the expected q_values we will use to create the loss to train the Q network"""

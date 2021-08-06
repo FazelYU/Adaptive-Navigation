@@ -76,12 +76,13 @@ class Utils(object):
 
         self.agent_dic=self.create_agent_dic()#{node:[len(in edges), len(out edges)]}
         self.agent_id_embedding_dic,self.agnet_id_embedding_size=self.create_agent_embedding_dic()
+        self.agent_state_dic=self.create_agent_state_dic()
         self.agent_list=list(self.agent_dic)
         self.agent_index={self.agent_list[idx]:idx for idx in range(len(self.agent_list))}
     
         self.edge_action_mask_dic=self.create_edge_action_mask_dic()
   
-        self.path_dic=self.create_path_dic()
+        self.agent_path_dic=self.create_agent_path_dic()
 
         self.induction_loops=[il for il in traci.inductionloop.getIDList() if "TLS" not in il]
 
@@ -93,7 +94,7 @@ class Utils(object):
 
         # subscribe the induction loops
         self.network_state=[]
-        self.dynamic_paths=self.path_dic #all edges are prone to congestion
+        # self.dynamic_paths=self.agent_path_dic #all edges are prone to congestion
 
         self.network_embed_dim=0
         # sum([len(self.dynamic_edges[edge]) for edge in self.dynamic_edges])
@@ -101,10 +102,8 @@ class Utils(object):
     def get_state(self,source_edge,source_node,sink_node):
         action_mask,action_mask_index=self.get_edge_action_mask(source_edge,source_node)
         dest_embed=self.agent_id_embedding_dic[sink_node]
-        source_node_state=self.get_node_state(source_node)
-        if 1 in source_node_state:
-            breakpoint()
-        embeding=dest_embed+source_node_state
+        source_node_state=self.get_agent_state(source_node)
+        embeding=torch.cat((dest_embed,source_node_state),0)
         if Constants['Analysis_Mode']:
             try:
                 assert(len(embeding)==self.get_state_diminsion(source_node))
@@ -126,26 +125,36 @@ class Utils(object):
         
         return self.network_state
             # return[1]
-    def get_node_state(self,node_id):
+    def get_agent_state(self,agent_id):
         if self.config.routing_mode=='Q_routing_0_hop':
-            state=[1 if self.network.edge_speed_dic[edge]['is_congested'] else 0 for edge in self.network.get_out_edges(node_id)]
-            return state
+            if Constants['Analysis_Mode']:
+                try:
+                    assert(agent_id in self.agent_dic)
+                except Exception as e:
+                    breakpoint()
+            #return the state of the agent
+            return self.agent_state_dic[agent_id]
         return [] 
 
     def set_network_state(self):
         # the network state changes randomly. However, the random changes are the same among the benchmarks.
         self.network_state=[]
-        for path_key in self.dynamic_paths:
-            if self.seeded_random_generator.random()>self.config.congestion_epsilon:
-                # no congestion for the edge
-                for edge in self.dynamic_paths[path_key]:
-                    traci.edge.setMaxSpeed(edge,self.network.edge_speed_dic[edge]['speed'])
-                    self.network.edge_speed_dic[edge]['is_congested']=False
-            else:
-                #congestion 
-                for edge in self.dynamic_paths[path_key]:
-                    traci.edge.setMaxSpeed(edge,self.network.edge_speed_dic[edge]['speed']*self.config.congestion_speed_factor)
-                    self.network.edge_speed_dic[edge]['is_congested']=True
+        for agent_id in self.agent_path_dic:
+            out_edeges_list=list(self.agent_path_dic[agent_id])
+            for edge_index in range(len(out_edeges_list)):
+                path_key=out_edeges_list[edge_index]
+                if self.seeded_random_generator.random()>self.config.congestion_epsilon:
+                    # no congestion for the edge
+                    self.agent_state_dic[agent_id][edge_index]=0
+                    for edge in self.agent_path_dic[agent_id][path_key]:
+                        traci.edge.setMaxSpeed(edge,self.network.edge_speed_dic[edge]['speed'])
+                        self.network.edge_speed_dic[edge]['is_congested']=False
+                else:
+                    #congestion 
+                    self.agent_state_dic[agent_id][edge_index]=1
+                    for edge in self.agent_path_dic[agent_id][path_key]:
+                        traci.edge.setMaxSpeed(edge,self.network.edge_speed_dic[edge]['speed']*self.config.congestion_speed_factor)
+                        self.network.edge_speed_dic[edge]['is_congested']=True
 
 
     def get_state_diminsion(self,node_id): 
@@ -223,7 +232,8 @@ class Utils(object):
     def create_agent_dic(self):
         """dictionary of all agents, 
         agent_dic[0]:#in edges
-        agent_dic[1]:#out edges"""
+        agent_dic[1]:#out edges
+        agent_dic[2]: state of the out-going edges, 1 if an edge is congested 0 O.W."""
         return {\
                 node: [
                         len(self.network.get_in_edges(node)),
@@ -233,6 +243,19 @@ class Utils(object):
                 self.does_need_agent(node)
         }
 
+    def does_need_agent(self,node):
+        if node==None: 
+            return False
+        
+        if len(self.network.get_out_edges(node))<2:
+            return False
+        
+        for edge in self.network.get_in_edges(node):
+            if len(self.network.get_edge_connections(edge))>1:
+                return True
+
+        return False
+    
     def create_agent_embedding_dic(self):
         z_order_dic={}
         agent_embedding_dic={}
@@ -257,33 +280,23 @@ class Utils(object):
             index_bin=format(index,'b')
             for i in range(len(index_bin)):
                 agent_id_embedding[-i-1]=int(index_bin[-i-1])
-            agent_embedding_dic[agent_id]=agent_id_embedding
+            agent_embedding_dic[agent_id]=torch.tensor(agent_id_embedding,dtype=torch.float,device=self.config.device)
 
         return agent_embedding_dic,ID_size
 
+    def create_agent_state_dic(self):
+        return { agent_id: torch.zeros(len(self.network.get_out_edges(agent_id)),device=self.config.device) for agent_id in self.agent_dic}
 
 
-    def does_need_agent(self,node):
-        if node==None: 
-            return False
-        
-        if len(self.network.get_out_edges(node))<2:
-            return False
-        
-        for edge in self.network.get_in_edges(node):
-            if len(self.network.get_edge_connections(edge))>1:
-                return True
-
-        return False
-
-    def create_path_dic(self):
-        paths={}
+    def create_agent_path_dic(self):
+        agent_paths={}
         for agent in self.agent_dic:
+            agent_paths[agent]={}
             for out_edge in self.network.get_out_edges(agent):
                 if Constants['Analysis_Mode']:
                     assert(out_edge not in paths)
-                paths[out_edge]=self.create_edge_path(out_edge)
-        return paths
+                agent_paths[agent][out_edge]=self.create_edge_path(out_edge)
+        return agent_paths
 
     
     def create_edge_path(self,edgeID):
@@ -298,15 +311,15 @@ class Utils(object):
 
         return path
 
-    def get_edge_path(self,edge_id):
-        return self.path_dic[edge_id]
+    def get_edge_path(self,node_id,edge_id):
+        return self.agent_path_dic[node_id][edge_id]
 
-    def get_edge_path_head_node(self,edge):
-        return self.network.get_edge_head_node(self.get_edge_path(edge)[-1])
+    # def get_edge_path_head_node(self,edge):
+    #     return self.network.get_edge_head_node(self.get_edge_path(edge)[-1])
 
     def get_next_road_IDs(self,node,action_edge_index):
         action_edge_ID=self.network.get_out_edges(node)[action_edge_index]
-        return self.get_edge_path(action_edge_ID)
+        return self.agent_path_dic[node][action_edge_ID]
 
     
     def get_destination(self,vc):
