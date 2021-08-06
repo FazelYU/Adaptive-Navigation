@@ -39,7 +39,7 @@ class DQN(Base_Agent):
             action_data={"action_values": action_values,
                 "state": state,
                 "turn_off_exploration": self.turn_off_exploration,
-                "episode_number": self.episode_number}
+                "episode_number": self.env_episode_number}
             action = self.exploration_strategy.perturb_action_for_exploration_purposes(action_data)
                 
             self.logger.info("Q values {} -- Action chosen {}".format(action_values, action))
