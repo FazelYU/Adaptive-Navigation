@@ -264,14 +264,13 @@ class Base_Agent(object):
             self.run()
             self.env_episode_number += 1
 
-            for agent_id in self.agent_dic:
-                # BUG: when memory is full the rate of the exploration stalls decreasing
-                # self.summ_writer.add_scalar('Memory_Length/'+str(agent_id),self.agent_dic[agent_id]["memory"].__len__(),self.env_episode_number)
+            # for agent_id in self.agent_dic:
+            #     # BUG: when memory is full the rate of the exploration stalls decreasing
+            #     # self.summ_writer.add_scalar('Memory_Length/'+str(agent_id),self.agent_dic[agent_id]["memory"].__len__(),self.env_episode_number)
 
-                # if self.agent_dic[agent_id]["total_exp_count"]<self.agent_dic[agent_id]["memory"].__len__():
-                #     self.agent_dic[agent_id]["total_exp_count"]=self.agent_dic[agent_id]["memory"].__len__()
-                self.environment.utils.log("episodne number should be different for all agents",type='warn')
-                self.agent_dic[agent_id]["episode_number"]+=1
+            #     # if self.agent_dic[agent_id]["total_exp_count"]<self.agent_dic[agent_id]["memory"].__len__():
+            #     #     self.agent_dic[agent_id]["total_exp_count"]=self.agent_dic[agent_id]["memory"].__len__()
+            #     self.agent_dic[agent_id]["episode_number"]+=1
 
             if save_and_print_results: self.save_and_print_result()
 
@@ -392,7 +391,7 @@ class Base_Agent(object):
                     random_seed=seed).to(self.device),
             "memory": Replay_Buffer(self.hyperparameters["buffer_size"], self.hyperparameters["batch_size"], self.config.seed, self.device),
             "new_exp_count":0,
-            "episode_number":0,
+            # "episode_number":0,
             "total_exp_count":0 ,
             }
 

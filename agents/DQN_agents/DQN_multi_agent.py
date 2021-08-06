@@ -30,16 +30,17 @@ class DQN(Base_Agent):
             agent_id=self.get_agent_id(state)
             q_network_local=self.agent_dic[agent_id]["NN"]
             embeding=state['embeding'].unsqueeze(0)
+            
             q_network_local.eval() #puts network in evaluation mode
             with torch.no_grad():
                 action_values = q_network_local(embeding)
             q_network_local.train() #puts network back in training mode
             
-            action = self.exploration_strategy.perturb_action_for_exploration_purposes({"action_values": action_values,
-                                                                                    "state": state,
-                                                                                    "turn_off_exploration": self.turn_off_exploration,
-            
-                                                                                    "episode_number": self.agent_dic[agent_id]["episode_number"]})
+            action_data={"action_values": action_values,
+                "state": state,
+                "turn_off_exploration": self.turn_off_exploration,
+                "episode_number": self.episode_number}
+            action = self.exploration_strategy.perturb_action_for_exploration_purposes(action_data)
                 
             self.logger.info("Q values {} -- Action chosen {}".format(action_values, action))
             actions.append(action)   
