@@ -34,7 +34,8 @@ rootTrips = treeTrips.getroot()
 config = Config()
 config.use_GPU = True
 config.training_mode=True
-routing_modes=["Q_routing_0_hop","Q_routing","TTSPWRR","TTSP"]
+routing_modes=["Q_routing_2_hop","Q_routing_1_hop","Q_routing_0_hop","Q_routing","TTSPWRR","TTSP"]
+config.network_aware_routing_modes=["Q_routing_2_hop","Q_routing_1_hop","Q_routing_0_hop"]
 config.routing_mode=routing_modes[0]
 config.exp_name="toronto_"+config.routing_mode
 
@@ -91,9 +92,9 @@ config.hyperparameters = {
     'enable_tensorboard': False, 
     'console_log_freq': 100, 
     'checkpoint_freq': 1000, 
-    'num_of_layers': 1, 
-    'num_heads_per_layer': [2], 
-    'num_features_per_layer': [1, 1], 
+    'num_of_layers': 2, 
+    'num_heads_per_layer': [2,2], 
+    'num_features_per_layer': [4,4,4], 
     'add_skip_connection': False, 
     'bias': True, 
     'dropout': 0.6,

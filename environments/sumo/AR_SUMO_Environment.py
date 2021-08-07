@@ -364,7 +364,7 @@ class AR_SUMO_Environment(gym.Env):
 						self.add_env_vc(vid,road,time,destination,dead_line)
 							
 				if self.config.num_uniform_vc_dispatched>0 and \
-				self.config.num_biased_vc_dispatched/self.config.num_uniform_vc_dispatched > \
+				self.config.num_biased_vc_dispatched/self.config.num_uniform_vc_dispatched < \
 				self.config.biased_demand_2_uniform_demand_ratio:
 					for trip in self.config.biased_demand:			
 						vids,road,destination,dead_line=self.utils.generate_biased_demand(time,trip)
@@ -413,7 +413,7 @@ class AR_SUMO_Environment(gym.Env):
 		def init_traci(self):
 			sys.path.append(os.path.join(Constants['SUMO_PATH'], os.sep, 'tools'))
 			sumoBinary = Constants["SUMO_GUI_PATH"]
-			self.sumoCmd = [sumoBinary, '-S', '-d', Constants['Simulation_Delay'], "-c", Constants["SUMO_CONFIG"]]
+			self.sumoCmd = [sumoBinary, '-S', '-d', Constants['Simulation_Delay'], "-c", Constants["SUMO_CONFIG"],"--no-warnings","true"]
 			traci.start(self.sumoCmd)
 		
 

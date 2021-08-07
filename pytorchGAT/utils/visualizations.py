@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import networkx as nx
-import igraph as ig
+# import igraph as ig
 
 
 from utils.constants import DatasetType, GraphVisualizationTool, network_repository_cora_url, cora_label_to_color_map

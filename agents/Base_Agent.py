@@ -399,9 +399,13 @@ class Base_Agent(object):
         }
 
         for agent_id in agent_dic:
-            agent_dic[agent_id]["optimizer"]=optim.Adam(list(agent_dic[agent_id]["NN"].parameters())+list(self.config.GAT_parameters),
-                                lr=self.hyperparameters["learning_rate"], eps=1e-4)
-
+            if self.config.routing_mode=='Q_routing_2_hop' or \
+                self.config.routing_mode=='Q_routing_1_hop':
+                agent_dic[agent_id]["optimizer"]=optim.Adam(list(agent_dic[agent_id]["NN"].parameters())+list(self.config.GAT_parameters),
+                                    lr=self.hyperparameters["learning_rate"], eps=1e-4)
+            else:
+                agent_dic[agent_id]["optimizer"]=optim.Adam(list(agent_dic[agent_id]["NN"].parameters()),
+                                    lr=self.hyperparameters["learning_rate"], eps=1e-4)                
         return agent_dic    
 
     def turn_on_any_epsilon_greedy_exploration(self):
