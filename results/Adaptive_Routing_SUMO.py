@@ -24,7 +24,6 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 import torchvision.transforms as T
-
 from pytorchGAT.models.definitions.GAT import GAT
 import xml.etree.ElementTree as ET
 
@@ -114,6 +113,7 @@ config.hyperparameters = {
         "batch_norm": False,
         "gradient_clipping_norm": 5,
         "update_every_n_steps": 1,
+        "num-new-exp-to-learn":32,
         "tau": 0.01,
         "discount_rate": 0.99,
         "learning_iterations": 1,

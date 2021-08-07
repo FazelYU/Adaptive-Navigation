@@ -57,7 +57,7 @@ class DQN(Base_Agent):
             # writer.add_scalar('Loss/train', np.random.random(), n_iter)
             actions_list = [action_X.item() for action_X in actions ]
             self.logger.info("Action counts {}".format(Counter(actions_list)))
-            self.take_optimisation_step(agent_id, loss, self.hyperparameters["gradient_clipping_norm"])
+            self.take_optimisation_step(agent_id, loss, self.hyperparameters["gradient_clipping_norm"],retain_graph=True)
 
     def compute_loss(self, agent_id, states, next_states, rewards, actions, dones):
         """Computes the loss required to train the Q network"""

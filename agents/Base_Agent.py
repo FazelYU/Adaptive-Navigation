@@ -334,13 +334,14 @@ class Base_Agent(object):
         if not isinstance(network, list): network = [network]
         optimizer.zero_grad() #reset gradients to 0
         loss.backward(retain_graph=retain_graph) #this calculates the gradients
+
         self.logger.info("Loss -- {}".format(loss.item()))
         if self.debug_mode: self.log_gradient_and_weight_information(network, optimizer)
         if clipping_norm is not None:
             for net in network:
                 torch.nn.utils.clip_grad_norm_(net.parameters(), clipping_norm) #clip gradients to help stabilise training
         optimizer.step() #this applies the gradients
-
+    
     def log_gradient_and_weight_information(self, network, optimizer):
 
         # log weight information
@@ -465,7 +466,7 @@ class Base_Agent(object):
 
     def enough_new_exp(self,agent_id):
         """Returns boolean indicating whether enough steps have been taken for learning to begin"""
-        return self.agent_dic[agent_id]["new_exp_count"]>=self.hyperparameters["update_every_n_steps"]
+        return self.agent_dic[agent_id]["new_exp_count"]>=self.hyperparameters["num-new-exp-to-learn"]
 
     def sample_experiences(self,memory):
         """Draws a random sample of experience from the memory buffer"""

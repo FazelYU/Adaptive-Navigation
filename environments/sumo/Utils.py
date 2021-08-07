@@ -20,7 +20,7 @@ Constants = {
     "ROOT" : "./",
     "Network_XML" : "./environments/sumo/networks/toronto/toronto.net.xml",
     'Analysis_Mode': True,
-    'LOG' : False,
+    'LOG' : True,
     'WARNINGS': False,
     'WHERE':False,
     'Simulation_Delay' : '0',
@@ -55,6 +55,7 @@ class Utils(object):
     def __init__(self,config,environment,network,Num_Flows,GAT,embed_network):
         super(Utils, self).__init__()
         self.config=config
+        torch.autograd.set_detect_anomaly(Constants["Analysis_Mode"])
         self.seeded_random_generator=numpy.random.RandomState(config.envm_seed)
         # breakpoint()
         self.network=network
@@ -124,7 +125,7 @@ class Utils(object):
 
     def set_network_state(self):
         # the network state changes randomly. However, the random changes are the same among the benchmarks.
-
+        self.agents_state=self.create_agents_state()
         for agent_id in self.agent_path_dic:
             out_edeges_list=list(self.agent_path_dic[agent_id])
             for edge_number in range(len(out_edeges_list)):
