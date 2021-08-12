@@ -102,11 +102,10 @@ class DQN(Base_Agent):
         #             assert(torch.equal(state["network_state"],next_states[i]["network_state"]))
         #         except Exception as e:
         #             breakpoint()
-        network_states_batch=torch.vstack([state['network_state'].view(1,-1) for state in next_states if state !=None])
-        # breakpoint()
+        not_Non_next_states=[state for state in next_states if state!=None]
+        not_Non_next_states_index_dic={id(not_Non_next_states[idx]):idx for idx in range(len(not_Non_next_states))}
+        network_states_batch=torch.vstack([state['network_state'].view(1,-1) for state in not_Non_next_states])
         network_state_embeding_batch=self.config.GAT(network_states_batch)
-        breakpoint()
-        # breakpoint()
 
 
         batch_size=dones.size()[0]
@@ -118,26 +117,22 @@ class DQN(Base_Agent):
             if dones[i]==1:
                 continue
             agent_id=self.get_agent_id(next_states[i])
-            # state=torch.unsqueeze(state,0)
-
             if not agent_id in masks_dic:
                 masks_dic[agent_id]={} 
                 masks_dic[agent_id]["mask"]=[False]*batch_size
-                masks_dic[agent_id]["index"]=[]
-            
+                masks_dic[agent_id]["index"]=[]           
             masks_dic[agent_id]["mask"][i]=True
             masks_dic[agent_id]["index"].append(i)
                 
         for agent_id in masks_dic:
             agent_mask=torch.Tensor(masks_dic[agent_id]["mask"]).unsqueeze(1).to(self.device,dtype=torch.bool)
             agent_states=next_states[masks_dic[agent_id]["index"]]
-
-            # breakpoint()
             agent_states_embedings=[]
             for state in agent_states:
                 destination_embeding=state['embeding']
-                network_state_embeding=self.config.GAT(state['network_state'])
-                intersection_state_embeding=network_state_embeding[state['agent_idx']]
+                network_state_idx=not_Non_next_states_index_dic[id(state)]
+                intersection_idx=state['agent_idx']
+                intersection_state_embeding=network_state_embeding_batch[network_state_idx][intersection_idx]
                 embeding=torch.cat((destination_embeding,intersection_state_embeding),0)
                 agent_states_embedings.append(embeding)
             agent_states_embedings=torch.vstack(agent_states_embedings)
@@ -159,11 +154,15 @@ class DQN(Base_Agent):
 
     def compute_expected_q_values(self, agent_id, states, actions):
         """Computes the expected q_values we will use to create the loss to train the Q network"""
+        states_index_dic={id(states[idx]):idx for idx in range(len(states))}
+        network_states_batch=torch.vstack([state['network_state'].view(1,-1) for state in states])
+        network_state_embeding_batch=self.config.GAT(network_states_batch)
         states_embedings=[]
         for state in states:
             destination_embeding=state['embeding']
-            network_state_embeding=self.config.GAT(state['network_state'])
-            intersection_state_embeding=network_state_embeding[state['agent_idx']]
+            network_state_idx=states_index_dic[id(state)]
+            intersection_idx=state['agent_idx']
+            intersection_state_embeding=network_state_embeding_batch[network_state_idx][intersection_idx]
             embeding=torch.cat((destination_embeding,intersection_state_embeding),0)
             states_embedings.append(embeding)
         states_embedings=torch.vstack(states_embedings)
