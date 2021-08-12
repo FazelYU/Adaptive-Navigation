@@ -53,7 +53,7 @@ config.Max_number_vc=200
 config.uniform_demand_period=5
 config.biased_demand_2_uniform_demand_ratio=0.1
 
-config.traffic_period=500
+config.traffic_period=1
 config.max_num_sim_time_step_per_episode=5000
 
 config.demand_scale=1
@@ -81,18 +81,11 @@ config.randomise_random_seed = True
 config.save_model = True
 config.hyperparameters = {
     "GAT":{
-    'num_of_epochs': 10000, 
-    'patience_period': 1000,
     'lr': 0.005, 
     'weight_decay': 0.0005, 
     'should_test': False, 
-    'dataset_name': 'CORA', 
-    'should_visualize': False, 
-    'enable_tensorboard': False, 
-    'console_log_freq': 100, 
-    'checkpoint_freq': 1000, 
     'num_of_layers': 2, 
-    'num_heads_per_layer': [2,2], 
+    'num_heads_per_layer': [1,1], 
     'num_features_per_layer': [4,4,4], 
     'add_skip_connection': False, 
     'bias': True, 
@@ -106,14 +99,14 @@ config.hyperparameters = {
         "linear_hidden_units": [6,8,6],
         "learning_rate": 0.01,
         "buffer_size": 10000,
-        "batch_size": 64,
+        "batch_size": 8,
         "final_layer_activation": None,
         # "columns_of_data_to_be_embedded": [0],
         # "embedding_dimensions": embedding_dimensions,
         "batch_norm": False,
         "gradient_clipping_norm": 5,
         "update_every_n_steps": 1,
-        "num-new-exp-to-learn":32,
+        "num-new-exp-to-learn":1,
         "tau": 0.01,
         "discount_rate": 0.99,
         "learning_iterations": 1,
@@ -125,6 +118,7 @@ config.hyperparameters = {
 
 
 gat = GAT(
+        config=config,
         num_of_layers=config.hyperparameters["GAT"]['num_of_layers'],
         num_heads_per_layer=config.hyperparameters["GAT"]['num_heads_per_layer'],
         num_features_per_layer=config.hyperparameters["GAT"]['num_features_per_layer'],
@@ -135,8 +129,12 @@ gat = GAT(
     ).to(config.device)
 
 gat.train()
-config.GAT_parameters=gat.parameters()
 config.GAT=gat
+config.GAT_parameters=gat.parameters()
+config.GAT_optim=optim.Adam(config.GAT_parameters,
+                            lr=config.hyperparameters["GAT"]["lr"], eps=1e-4)
+config.network_state=[]
+config.edge_index=[]
 
 config.environment = envm(config)
 

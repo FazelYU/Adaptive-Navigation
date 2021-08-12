@@ -50,11 +50,10 @@ class Replay_Buffer(object):
 
     def separate_out_data_types(self, experiences):
         """Puts the sampled experience into the correct format for a PyTorch neural network"""
-        states = torch.vstack([e.state['embeding'] for e in experiences if e is not None])
+        states = np.array([e.state for e in experiences if e is not None])
         actions = torch.from_numpy(np.vstack([e.action for e in experiences if e is not None])).float().to(self.device)
         rewards = torch.from_numpy(np.vstack([e.reward for e in experiences if e is not None])).float().to(self.device)
-        # WARning: nextstates need to be fixed
-        next_states = np.vstack([e.next_state for e in experiences if e is not None])
+        next_states = np.array([e.next_state for e in experiences if e is not None])
         dones = torch.from_numpy(np.vstack([int(e.done) for e in experiences if e is not None])).float().to(self.device)
         
         return states, actions, rewards, next_states, dones

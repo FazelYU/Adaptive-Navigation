@@ -302,9 +302,7 @@ class Base_Agent(object):
 
             if self.config.training_mode:
                 self.save_experience()
-                for agent_id in self.agent_dic:
-                    if self.time_for_q_network_to_learn(agent_id):
-                        self.learn(agent_id)
+                self.learn()
             
     def conduct_action(self, actions):
         """Conducts an action in the environment"""
@@ -327,20 +325,59 @@ class Base_Agent(object):
         #         self.agent_dic[agent_id]["new_exp_count"]+=1
         #         self.agent_dic[agent_id]["has_new_exp"]=False
 
-    def take_optimisation_step(self, agent_id, loss, clipping_norm=None, retain_graph=False):
+    def take_optimisation_step(self, agents_losses, clipping_norm=None, retain_graph=False):
         """Takes an optimisation step by calculating gradients given the loss and then updating the parameters"""
-        network=self.agent_dic[agent_id]["NN"]
-        optimizer=self.agent_dic[agent_id]["optimizer"]
-        if not isinstance(network, list): network = [network]
-        optimizer.zero_grad() #reset gradients to 0
-        loss.backward(retain_graph=retain_graph) #this calculates the gradients
+        # if len(agents_losses)>1:
+        #     breakpoint()
 
-        self.logger.info("Loss -- {}".format(loss.item()))
-        if self.debug_mode: self.log_gradient_and_weight_information(network, optimizer)
-        if clipping_norm is not None:
-            for net in network:
-                torch.nn.utils.clip_grad_norm_(net.parameters(), clipping_norm) #clip gradients to help stabilise training
-        optimizer.step() #this applies the gradients
+        try:
+            for (agent_id,loss) in agents_losses:
+                self.agent_dic[agent_id]["optimizer"].zero_grad()
+            self.config.GAT_optim.zero_grad()        
+        except Exception as e:
+            breakpoint()        
+
+        try:
+            for idx in range(len(agents_losses)):
+                loss=agents_losses[idx][1]
+                loss.backward(retain_graph=True)
+                # self.agent_dic[agent_id]['optimizer'].step()     
+        except Exception as e:
+            breakpoint()
+
+        try:
+            if clipping_norm is not None:
+                for (agent_id,loss) in agents_losses:
+                    torch.nn.utils.clip_grad_norm_(self.agent_dic[agent_id]["NN"].parameters(), clipping_norm) #clip gradients to help stabilise training     
+                torch.nn.utils.clip_grad_norm_(self.config.GAT_parameters, clipping_norm) #clip gradients to help stabilise training     
+                
+        except Exception as e:
+            breakpoint()
+
+        try:
+            for (agent_id,loss) in agents_losses:
+                self.agent_dic[agent_id]["optimizer"].step()
+
+            self.config.GAT_optim.step()
+        except Exception as e:
+           breakpoint()
+
+        # if len(agents_losses)>1:
+        #     breakpoint()
+
+
+        # network=self.agent_dic[agent_id]["NN"]
+        # optimizer=self.agent_dic[agent_id]["optimizer"]
+        # if not isinstance(network, list): network = [network]
+        # optimizer.zero_grad() #reset gradients to 0
+        # loss.backward(retain_graph=retain_graph) #this calculates the gradients
+
+        # self.logger.info("Loss -- {}".format(loss.item()))
+        # if self.debug_mode: self.log_gradient_and_weight_information(network, optimizer)
+        # if clipping_norm is not None:
+        #     for net in network:
+        #         torch.nn.utils.clip_grad_norm_(net.parameters(), clipping_norm) #clip gradients to help stabilise training
+        # optimizer.step() #this applies the gradients
     
     def log_gradient_and_weight_information(self, network, optimizer):
 
@@ -402,7 +439,9 @@ class Base_Agent(object):
         for agent_id in agent_dic:
             if self.config.routing_mode=='Q_routing_2_hop' or \
                 self.config.routing_mode=='Q_routing_1_hop':
-                agent_dic[agent_id]["optimizer"]=optim.Adam(list(agent_dic[agent_id]["NN"].parameters())+list(self.config.GAT_parameters),
+                # agent_dic[agent_id]["optimizer"]=optim.Adam(list(agent_dic[agent_id]["NN"].parameters())+list(self.config.GAT_parameters),
+                                    # lr=self.hyperparameters["learning_rate"], eps=1e-4)
+                agent_dic[agent_id]["optimizer"]=optim.Adam(agent_dic[agent_id]["NN"].parameters(),
                                     lr=self.hyperparameters["learning_rate"], eps=1e-4)
             else:
                 agent_dic[agent_id]["optimizer"]=optim.Adam(list(agent_dic[agent_id]["NN"].parameters()),

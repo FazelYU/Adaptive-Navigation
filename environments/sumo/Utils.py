@@ -20,7 +20,7 @@ Constants = {
     "ROOT" : "./",
     "Network_XML" : "./environments/sumo/networks/toronto/toronto.net.xml",
     'Analysis_Mode': True,
-    'LOG' : True,
+    'LOG' : False,
     'WARNINGS': False,
     'WHERE':False,
     'Simulation_Delay' : '0',
@@ -80,11 +80,11 @@ class Utils(object):
         self.agent_path_dic=self.create_agent_path_dic()
         self.agent_adjacency_list_dict=self.create_agent_adjacency_list_dic()
         self.max_len_out_edges=max([self.agent_dic[agent_id][1] for agent_id in self.agent_dic])
-        self.edge_index=self.create_edge_index()
-        self.agents_state=self.create_agents_state()
-        if  self.config.routing_mode=='Q_routing_1_hop' or\
-            self.config.routing_mode=='Q_routing_2_hop':
-            self.aggregated_agents_state=self.graph_attention_network(self.edge_index,self.agents_state)
+        self.config.edge_index=self.create_edge_index()
+        self.config.network_state=self.create_network_state()
+        # if  self.config.routing_mode=='Q_routing_1_hop' or\
+        #     self.config.routing_mode=='Q_routing_2_hop':
+        #     self.aggregated_network_state=self.graph_attention_network(self.edge_index,self.config.network_state)
 
         self.edge_action_mask_dic=self.create_edge_action_mask_dic()
         self.induction_loops=[il for il in traci.inductionloop.getIDList() if "TLS" not in il]
@@ -99,53 +99,60 @@ class Utils(object):
     def get_state(self,source_edge,source_node,sink_node):
         action_mask,action_mask_index=self.get_edge_action_mask(source_edge,source_node)
         dest_embed=self.agent_id_embedding_dic[sink_node]
-        source_node_state=self.get_agent_state(source_node)
-        embeding=torch.cat((dest_embed,source_node_state),0)
+        # source_node_state=self.get_agent_state(source_node)
+        # embeding=torch.cat((dest_embed,source_node_state),0)
 
-        if Constants['Analysis_Mode']:
-            try:
-                assert(len(embeding)==self.get_state_diminsion(source_node))
-            except Exception as e:
-                breakpoint()
+        # if Constants['Analysis_Mode']:
+        #     try:
+        #         assert(len(embeding)==self.get_state_diminsion(source_node))
+        #     except Exception as e:
+        #         breakpoint()
             
-        return {"agent_id": source_node,
+        return {
+                "agent_id": source_node,
+                "agent_idx": self.agent_index_dic[source_node],
                 "action_mask": action_mask,
                 "action_mask_index":action_mask_index,
-                "embeding": embeding}
+                "embeding": dest_embed,
+                "network_state":self.config.network_state.detach().clone()
+                }
 
 
-    def get_agent_state(self,agent_id):
-        if self.config.routing_mode=='Q_routing_0_hop':
-            return self.agents_state[self.agent_index_dic[agent_id]]
-        if  self.config.routing_mode=='Q_routing_1_hop' or\
-            self.config.routing_mode=='Q_routing_2_hop':
-            return self.aggregated_agents_state[self.agent_index_dic[agent_id]]
+    # def get_agent_state(self,agent_id):
+    #     if self.config.routing_mode=='Q_routing_0_hop':
+    #         return self.config.network_state[self.agent_index_dic[agent_id]]
+    #     if  self.config.routing_mode=='Q_routing_1_hop' or\
+    #         self.config.routing_mode=='Q_routing_2_hop':
+    #         return self.aggregated_network_state[self.agent_index_dic[agent_id]]
 
-        return [] 
+    #     return [] 
+
+    def create_network_state(self):
+        return  torch.vstack([torch.zeros(self.max_len_out_edges,device=self.config.device) for agent_id in self.agent_dic]).detach()
 
     def set_network_state(self):
         # the network state changes randomly. However, the random changes are the same among the benchmarks.
-        self.agents_state=self.create_agents_state()
         for agent_id in self.agent_path_dic:
             out_edeges_list=list(self.agent_path_dic[agent_id])
             for edge_number in range(len(out_edeges_list)):
                 path_key=out_edeges_list[edge_number]
                 if self.seeded_random_generator.random()>self.config.congestion_epsilon:
                     # no congestion for the edge
-                    self.agents_state[self.agent_index_dic[agent_id]][edge_number]=0
+                    self.config.network_state[self.agent_index_dic[agent_id]][edge_number]=0
                     for edge in self.agent_path_dic[agent_id][path_key]:
                         traci.edge.setMaxSpeed(edge,self.network.edge_speed_dic[edge]['speed'])
                         self.network.edge_speed_dic[edge]['is_congested']=False
                 else:
                     #congestion 
-                    self.agents_state[self.agent_index_dic[agent_id]][edge_number]=1
+                    self.config.network_state[self.agent_index_dic[agent_id]][edge_number]=1
                     for edge in self.agent_path_dic[agent_id][path_key]:
                         traci.edge.setMaxSpeed(edge,self.network.edge_speed_dic[edge]['speed']*self.config.congestion_speed_factor)
                         self.network.edge_speed_dic[edge]['is_congested']=True
-        if  self.config.routing_mode=='Q_routing_1_hop' or\
-            self.config.routing_mode=='Q_routing_2_hop':
-            self.aggregated_agents_state=self.graph_attention_network(self.edge_index,self.agents_state)
-
+        # if  self.config.routing_mode=='Q_routing_1_hop' or\
+        #     self.config.routing_mode=='Q_routing_2_hop':
+        #     # self.aggregated_network_state=self.aggregated_network_state.clone()
+        #     self.aggregated_network_state=self.graph_attention_network(self.edge_index,self.config.network_state)
+        #     # breakpoint()
 
     def get_state_diminsion(self,node_id): 
         if  self.config.routing_mode=='Q_routing_0_hop' or\
@@ -277,8 +284,6 @@ class Utils(object):
 
         return agent_embedding_dic,ID_size
 
-    def create_agents_state(self):
-        return  torch.vstack([torch.zeros(self.max_len_out_edges,device=self.config.device) for agent_id in self.agent_dic])
 
 
     def create_agent_path_dic(self):
@@ -401,10 +406,10 @@ class Utils(object):
         return torch.tensor(edge_index,dtype=torch.long,device=self.config.device)
 
     def get_node_features(self):
-        return self.agents_state
+        return self.config.network_state
 
-    def graph_attention_network(self,edge_index,node_features):
-        return self.gat((node_features, edge_index))[0]
+    # def graph_attention_network(self,edge_index,node_features):
+    #     return self.gat((node_features, edge_index))[0]
 
 #helper-------------------------------------------------
 

@@ -354,7 +354,7 @@ class AR_SUMO_Environment(gym.Env):
 
 		
 		def change_traffic_condition(self,time):
-			if time%self.config.traffic_period==1:
+			if time%self.config.traffic_period==0:
 				self.utils.set_network_state()
 			
 			if self.should_insert_new_vc(time):

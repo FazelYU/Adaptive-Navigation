@@ -3,16 +3,17 @@ import torch.nn as nn
 
 class GAT(torch.nn.Module):
     
-    def __init__(self, num_of_layers, num_heads_per_layer, num_features_per_layer, add_skip_connection=True, bias=True,
+    def __init__(self,config, num_of_layers, num_heads_per_layer, num_features_per_layer, add_skip_connection=True, bias=True,
                  dropout=0.6, log_attention_weights=False):
         super().__init__()
         assert num_of_layers == len(num_heads_per_layer) == len(num_features_per_layer) - 1, f'Enter valid arch params.'
+        self.config=config
 
         num_heads_per_layer = [1] + num_heads_per_layer  # trick - so that I can nicely create GAT layers below
-
         gat_layers = []  # collect GAT layers
         for i in range(num_of_layers):
             layer = GATLayer(
+                config=config,
                 num_in_features=num_features_per_layer[i] * num_heads_per_layer[i],  # consequence of concatenation
                 num_out_features=num_features_per_layer[i+1],
                 num_of_heads=num_heads_per_layer[i+1],
@@ -34,6 +35,7 @@ class GAT(torch.nn.Module):
     # https://discuss.pytorch.org/t/forward-takes-2-positional-arguments-but-3-were-given-for-nn-sqeuential-with-linear-layers/65698
 
     def forward(self, data):
+        data=data.view(data.size()[0],-1,4)
         return self.gat_net(data)
 
 
@@ -51,14 +53,15 @@ class GATLayer(torch.nn.Module):
     src_nodes_dim = 0  # position of source nodes in edge index
     trg_nodes_dim = 1  # position of target nodes in edge index
 
-    nodes_dim = 0      # node dimension/axis
-    head_dim = 1       # attention head dimension/axis
+    nodes_dim = 1      # node dimension/axis
+    head_dim = 2      # attention head dimension/axis
 
-    def __init__(self, num_in_features, num_out_features, num_of_heads, concat=True, activation=nn.ELU(),
+    def __init__(self,config, num_in_features, num_out_features, num_of_heads, concat=True, activation=nn.ELU(),
                     dropout_prob=0.6, add_skip_connection=True, bias=True, log_attention_weights=False):
 
         super().__init__()
-
+        self.config=config
+        self.batch_size=self.config.hyperparameters["DQN_Agents"]["batch_size"]
         # Saving these as we'll need them in forward propagation in children layers (imp1/2/3)
         self.num_of_heads = num_of_heads
         self.num_out_features = num_out_features
@@ -141,28 +144,33 @@ class GATLayer(torch.nn.Module):
             else:
                 # FIN != FOUT so we need to project input feature vectors into dimension that can be added to output
                 # feature vectors. skip_proj adds lots of additional capacity which may cause overfitting.
-                out_nodes_features += self.skip_proj(in_nodes_features).view(-1, self.num_of_heads, self.num_out_features)
+                out_nodes_features += self.skip_proj(in_nodes_features).view(in_nodes_features.size()[0],-1, self.num_of_heads, self.num_out_features)
 
         if self.concat:
             # shape = (N, NH, FOUT) -> (N, NH*FOUT)
-            out_nodes_features = out_nodes_features.view(-1, self.num_of_heads * self.num_out_features)
+            out_nodes_features = out_nodes_features.view(in_nodes_features.size()[0],-1, self.num_of_heads * self.num_out_features)
         else:
             # shape = (N, NH, FOUT) -> (N, FOUT)
             out_nodes_features = out_nodes_features.mean(dim=self.head_dim)
 
         if self.bias is not None:
-            out_nodes_features += self.bias
+            out_nodes_features = out_nodes_features + self.bias
 
         return out_nodes_features if self.activation is None else self.activation(out_nodes_features)
 
-    def forward(self, data):
+    def forward(self, in_nodes_features):
         #
         # Step 1: Linear Projection + regularization
         #
+        # breakpoint()
+        edge_index=self.config.edge_index
+        batch_size,num_of_nodes,num_in_features=in_nodes_features.size()[0:3]
 
-        in_nodes_features, edge_index = data  # unpack data
-        num_of_nodes = in_nodes_features.shape[self.nodes_dim]
-        assert edge_index.shape[0] == 2, f'Expected edge index with shape=(2,E) got {edge_index.shape}'
+        # try:
+        #     num_of_nodes = in_nodes_features.size(self.nodes_dim)
+        # except Exception as e:
+        #     breakpoint()
+
         # shape = (N, FIN) where N - number of nodes in the graph, FIN - number of input features per node
         # We apply the dropout to all of the input node features (as mentioned in the paper)
         # Note: for Cora features are already super sparse so it's questionable how much this actually helps
@@ -171,8 +179,7 @@ class GATLayer(torch.nn.Module):
 
         # shape = (N, FIN) * (FIN, NH*FOUT) -> (N, NH, FOUT) where NH - number of heads, FOUT - num of output features
         # We project the input node features into NH independent output features (one for each attention head)
-        nodes_features_proj = self.linear_proj(in_nodes_features).view(-1, self.num_of_heads, self.num_out_features)
-
+        nodes_features_proj = self.linear_proj(in_nodes_features).view(batch_size,num_of_nodes, self.num_of_heads, self.num_out_features)
         # nodes_features_proj = self.dropout(nodes_features_proj)  # in the official GAT imp they did dropout here as well
         #
         # Step 2: Edge attention calculation
@@ -208,14 +215,16 @@ class GATLayer(torch.nn.Module):
         # shape = (N, NH, FOUT)
         out_nodes_features = self.aggregate_neighbors(nodes_features_proj_lifted_weighted, edge_index, in_nodes_features, num_of_nodes)
 
-        #
         # Step 4: Residual/skip connections, concat and bias
         #
 
         out_nodes_features = self.skip_concat_bias(attentions_per_edge, in_nodes_features, out_nodes_features)
         
-        return (out_nodes_features, edge_index)
+        return out_nodes_features
 
+
+
+# -------------------------------------------------------------------------------------
     #
     # Helper functions (without comments there is very little code so don't be scared!)
     #
@@ -238,7 +247,7 @@ class GATLayer(torch.nn.Module):
 
         """
         # Calculate the numerator. Make logits <= 0 so that e^logit <= 1 (this will improve the numerical stability)
-        scores_per_edge = scores_per_edge - scores_per_edge.max()
+        scores_per_edge = scores_per_edge - scores_per_edge.max(1)[0].unsqueeze(1)
         exp_scores_per_edge = scores_per_edge.exp()  # softmax
 
         # Calculate the denominator. shape = (E, NH)
@@ -253,7 +262,8 @@ class GATLayer(torch.nn.Module):
 
     def sum_edge_scores_neighborhood_aware(self, exp_scores_per_edge, trg_index, num_of_nodes):
         # The shape must be the same as in exp_scores_per_edge (required by scatter_add_) i.e. from E -> (E, NH)
-        trg_index_broadcasted = self.explicit_broadcast(trg_index, exp_scores_per_edge)
+        # trg_index_broadcasted = self.explicit_broadcast(trg_index, exp_scores_per_edge)
+        trg_index_broadcasted = trg_index.unsqueeze(-1).expand_as(exp_scores_per_edge)
 
         # shape = (N, NH), where N is the number of nodes and NH the number of attention heads
         size = list(exp_scores_per_edge.shape)  # convert to list otherwise assignment is not possible
@@ -273,9 +283,9 @@ class GATLayer(torch.nn.Module):
         size = list(nodes_features_proj_lifted_weighted.shape)  # convert to list otherwise assignment is not possible
         size[self.nodes_dim] = num_of_nodes  # shape = (N, NH, FOUT)
         out_nodes_features = torch.zeros(size, dtype=in_nodes_features.dtype, device=in_nodes_features.device)
-
         # shape = (E) -> (E, NH, FOUT)
-        trg_index_broadcasted = self.explicit_broadcast(edge_index[self.trg_nodes_dim], nodes_features_proj_lifted_weighted)
+
+        trg_index_broadcasted = edge_index[self.trg_nodes_dim].unsqueeze(-1).unsqueeze(-1).expand_as(nodes_features_proj_lifted_weighted)
         # aggregation step - we accumulate projected, weighted node features for all the attention heads
         # shape = (E, NH, FOUT) -> (N, NH, FOUT)
         out_nodes_features.scatter_add_(self.nodes_dim, trg_index_broadcasted, nodes_features_proj_lifted_weighted)
@@ -297,14 +307,6 @@ class GATLayer(torch.nn.Module):
         nodes_features_matrix_proj_lifted = nodes_features_matrix_proj.index_select(self.nodes_dim, src_nodes_index)
 
         return scores_source, scores_target, nodes_features_matrix_proj_lifted
-
-    def explicit_broadcast(self, this, other):
-        # Append singleton dimensions until this.dim() == other.dim()
-        for _ in range(this.dim(), other.dim()):
-            this = this.unsqueeze(-1)
-
-        # Explicitly expand so that shapes are the same
-        return this.expand_as(other)
 
 
 
