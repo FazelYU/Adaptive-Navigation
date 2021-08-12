@@ -118,15 +118,6 @@ class Utils(object):
                 }
 
 
-    # def get_agent_state(self,agent_id):
-    #     if self.config.routing_mode=='Q_routing_0_hop':
-    #         return self.config.network_state[self.agent_index_dic[agent_id]]
-    #     if  self.config.routing_mode=='Q_routing_1_hop' or\
-    #         self.config.routing_mode=='Q_routing_2_hop':
-    #         return self.aggregated_network_state[self.agent_index_dic[agent_id]]
-
-    #     return [] 
-
     def create_network_state(self):
         return  torch.vstack([torch.zeros(self.max_len_out_edges,device=self.config.device) for agent_id in self.agent_dic]).detach()
 
@@ -148,16 +139,10 @@ class Utils(object):
                     for edge in self.agent_path_dic[agent_id][path_key]:
                         traci.edge.setMaxSpeed(edge,self.network.edge_speed_dic[edge]['speed']*self.config.congestion_speed_factor)
                         self.network.edge_speed_dic[edge]['is_congested']=True
-        # if  self.config.routing_mode=='Q_routing_1_hop' or\
-        #     self.config.routing_mode=='Q_routing_2_hop':
-        #     # self.aggregated_network_state=self.aggregated_network_state.clone()
-        #     self.aggregated_network_state=self.graph_attention_network(self.edge_index,self.config.network_state)
-        #     # breakpoint()
+
 
     def get_state_diminsion(self,node_id): 
-        if  self.config.routing_mode=='Q_routing_0_hop' or\
-            self.config.routing_mode=='Q_routing_1_hop' or\
-            self.config.routing_mode=='Q_routing_2_hop':
+        if  self.config.does_need_network_state:
             return self.agnet_id_embedding_size+self.max_len_out_edges
 
         return self.agnet_id_embedding_size

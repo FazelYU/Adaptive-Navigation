@@ -437,15 +437,9 @@ class Base_Agent(object):
         }
 
         for agent_id in agent_dic:
-            if self.config.routing_mode=='Q_routing_2_hop' or \
-                self.config.routing_mode=='Q_routing_1_hop':
-                # agent_dic[agent_id]["optimizer"]=optim.Adam(list(agent_dic[agent_id]["NN"].parameters())+list(self.config.GAT_parameters),
-                                    # lr=self.hyperparameters["learning_rate"], eps=1e-4)
-                agent_dic[agent_id]["optimizer"]=optim.Adam(agent_dic[agent_id]["NN"].parameters(),
-                                    lr=self.hyperparameters["learning_rate"], eps=1e-4)
-            else:
-                agent_dic[agent_id]["optimizer"]=optim.Adam(list(agent_dic[agent_id]["NN"].parameters()),
-                                    lr=self.hyperparameters["learning_rate"], eps=1e-4)                
+            agent_dic[agent_id]["optimizer"]=optim.Adam(agent_dic[agent_id]["NN"].parameters(),
+                        lr=self.hyperparameters["learning_rate"], eps=1e-4)
+               
         return agent_dic    
 
     def turn_on_any_epsilon_greedy_exploration(self):
@@ -517,9 +511,11 @@ class Base_Agent(object):
         """Saves the policy"""
         for agent_id in self.agent_dic:
             torch.save(self.agent_dic[agent_id]["NN"].state_dict(),"Models/{}/agent_{}_policy.pt".format(self.config.exp_name,agent_id))
+        torch.save(self.config.GAT.state_dict(),"Models/{}/GAT.pt".format(self.config.exp_name))
+        
         # torch.save(self.q_network_local.state_dict(), "Models/{}_local_network.pt".format(self.agent_name))
 
     def load_policies(self):
         for agent_id in self.agent_dic:
             self.agent_dic[agent_id]["NN"].load_state_dict(torch.load("Models/{}/agent_{}_policy.pt".format(self.config.exp_name,agent_id)))
-
+        self.config.GAT.load_state_dict(torch.load("Models/{}/GAT.pt".format(self.config.exp_name)))

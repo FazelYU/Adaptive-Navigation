@@ -27,12 +27,18 @@ class DQN(Base_Agent):
             return []
 
         # breakpoint()
-        self.config.GAT.eval()
-        with torch.no_grad():
-            network_state_embeding=\
-            self.config.GAT(self.config.network_state.view(1,-1,4)).view(-1,4)
-        self.config.GAT.train()
-        # breakpoint()
+        if self.config.does_need_network_state:
+            if self.config.does_need_network_state_embeding:
+                self.config.GAT.eval()
+                with torch.no_grad():
+                    network_state_embeding=\
+                    self.config.GAT(self.config.network_state.view(1,-1,4)).view(-1,4)
+                self.config.GAT.train()
+            else:
+                network_state_embeding=self.config.network_state
+        else:
+            size=self.config.network_state.size()
+            network_state_embeding=torch.empty(size[0],0)
 
         actions=[]
 
@@ -59,9 +65,6 @@ class DQN(Base_Agent):
             self.logger.info("Q values {} -- Action chosen {}".format(action_values, action))
             actions.append(action)   
         return actions
-
-# actions_list = [action_X.item() for action_X in actions ]
-# self.logger.info("Action counts {}".format(Counter(actions_list)))
    
     def learn(self):
         """Runs a learning iteration for the Q network on each agent"""
@@ -71,11 +74,6 @@ class DQN(Base_Agent):
                 self.take_optimisation_step(agents_losses, self.hyperparameters["gradient_clipping_norm"],retain_graph=True)            
             except Exception as e:
                 breakpoint()
-            # for (agent_id,loss) in agents_losses:
-            #     try:
-            #         self.take_optimisation_step(agent_id, loss, self.hyperparameters["gradient_clipping_norm"],retain_graph=True)
-            #     except Exception as e:
-            #         breakpoint()
 
     def compute_loss(self, agent_id):
         """Computes the loss required to train the Q network"""
@@ -92,24 +90,25 @@ class DQN(Base_Agent):
 
     def compute_q_values_for_next_states(self, next_states,dones):
         """Computes the q_values for next state we will use to create the loss to train the Q network"""
-        # i=0
-        # while next_states[i]==None:
-        #     i+=1
+        batch_size=dones.size()[0]
+        Q_targets_next=torch.zeros(batch_size,1).to(self.device)
 
-        # for state in next_states:
-        #     if state!=None:
-        #         try:
-        #             assert(torch.equal(state["network_state"],next_states[i]["network_state"]))
-        #         except Exception as e:
-        #             breakpoint()
         not_Non_next_states=[state for state in next_states if state!=None]
         not_Non_next_states_index_dic={id(not_Non_next_states[idx]):idx for idx in range(len(not_Non_next_states))}
         network_states_batch=torch.vstack([state['network_state'].view(1,-1) for state in not_Non_next_states])
-        network_state_embeding_batch=self.config.GAT(network_states_batch)
+        # network_state_embeding_batch=self.config.GAT(network_states_batch)
 
+        if self.config.does_need_network_state:
+            if self.config.does_need_network_state_embeding:
+                network_state_embeding_batch=self.config.GAT(network_states_batch)
+            else:
+                network_state_embeding_batch=network_states_batch.view(network_states_batch.size()[0],-1,4)
+                # breakpoint()
+        else:
+            size=network_states_batch.view(network_states_batch.size()[0],-1,4).size()
+            network_state_embeding_batch=torch.empty(size[0],size[1],0)
+            breakpoint()
 
-        batch_size=dones.size()[0]
-        Q_targets_next=torch.zeros(batch_size,1).to(self.device)
         
         masks_dic={}
         
@@ -156,7 +155,17 @@ class DQN(Base_Agent):
         """Computes the expected q_values we will use to create the loss to train the Q network"""
         states_index_dic={id(states[idx]):idx for idx in range(len(states))}
         network_states_batch=torch.vstack([state['network_state'].view(1,-1) for state in states])
-        network_state_embeding_batch=self.config.GAT(network_states_batch)
+        # network_state_embeding_batch=self.config.GAT(network_states_batch)
+
+        if self.config.does_need_network_state:
+            if self.config.does_need_network_state_embeding:
+                network_state_embeding_batch=self.config.GAT(network_states_batch)
+            else:
+                network_state_embeding_batch=network_states_batch.view(network_states_batch.size()[0],-1,4)
+        else:
+            size=network_states_batch.view(network_states_batch.size()[0],-1,4).size()
+            network_state_embeding_batch=torch.empty(size[0],size[1],0)
+
         states_embedings=[]
         for state in states:
             destination_embeding=state['embeding']

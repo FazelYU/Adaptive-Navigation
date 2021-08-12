@@ -33,9 +33,14 @@ rootTrips = treeTrips.getroot()
 config = Config()
 config.use_GPU = True
 config.training_mode=True
+
 routing_modes=["Q_routing_2_hop","Q_routing_1_hop","Q_routing_0_hop","Q_routing","TTSPWRR","TTSP"]
-config.network_aware_routing_modes=["Q_routing_2_hop","Q_routing_1_hop","Q_routing_0_hop"]
-config.routing_mode=routing_modes[0]
+config.routing_mode=routing_modes[1]
+if config.routing_mode in ["TTSPWRR","TTSP"]:
+    config.training_mode=False
+config.does_need_network_state=config.routing_mode in ["Q_routing_2_hop","Q_routing_1_hop","Q_routing_0_hop"]
+config.does_need_network_state_embeding=config.routing_mode in ["Q_routing_2_hop","Q_routing_1_hop"]
+
 config.exp_name="toronto_"+config.routing_mode
 
 config.device = torch.device("cuda" if torch.cuda.is_available() else "cpu") #device is cpu
@@ -47,13 +52,13 @@ config.should_load_model= False if  config.routing_mode== "TTSPWRR" or \
 
 config.should_save_model=config.training_mode
 # -------------------------------------------------
-config.num_episodes_to_run = 500 if config.training_mode else 10
+config.num_episodes_to_run = 1000 if config.training_mode else 10
 
 config.Max_number_vc=200
 config.uniform_demand_period=5
 config.biased_demand_2_uniform_demand_ratio=0.1
 
-config.traffic_period=1
+config.traffic_period=500
 config.max_num_sim_time_step_per_episode=5000
 
 config.demand_scale=1
@@ -79,14 +84,17 @@ config.runs_per_agent = 1
 config.overwrite_existing_results_file = True
 config.randomise_random_seed = True
 config.save_model = True
+
+num_GAT_layers=1 if config.routing_mode=="Q_routing_1_hop" else 2
+num_GAT_heads_per_layer=[2]*num_GAT_layers
+num_GAT_features_per_layer=[4]*(num_GAT_layers+1)
 config.hyperparameters = {
     "GAT":{
     'lr': 0.005, 
     'weight_decay': 0.0005, 
-    'should_test': False, 
-    'num_of_layers': 2, 
-    'num_heads_per_layer': [1,1], 
-    'num_features_per_layer': [4,4,4], 
+    'num_of_layers': num_GAT_layers, 
+    'num_heads_per_layer': num_GAT_heads_per_layer, 
+    'num_features_per_layer': num_GAT_features_per_layer, 
     'add_skip_connection': False, 
     'bias': True, 
     'dropout': 0.6,
@@ -99,14 +107,12 @@ config.hyperparameters = {
         "linear_hidden_units": [6,8,6],
         "learning_rate": 0.01,
         "buffer_size": 10000,
-        "batch_size": 8,
+        "batch_size": 128,
         "final_layer_activation": None,
-        # "columns_of_data_to_be_embedded": [0],
-        # "embedding_dimensions": embedding_dimensions,
         "batch_norm": False,
         "gradient_clipping_norm": 5,
-        "update_every_n_steps": 1,
-        "num-new-exp-to-learn":1,
+        # "update_every_n_steps": 1,
+        "num-new-exp-to-learn":10,
         "tau": 0.01,
         "discount_rate": 0.99,
         "learning_iterations": 1,
@@ -114,6 +120,7 @@ config.hyperparameters = {
         "learning_iterations": 1,
         "clip_rewards": False
     },
+
 }
 
 
@@ -132,7 +139,10 @@ gat.train()
 config.GAT=gat
 config.GAT_parameters=gat.parameters()
 config.GAT_optim=optim.Adam(config.GAT_parameters,
-                            lr=config.hyperparameters["GAT"]["lr"], eps=1e-4)
+                            lr=config.hyperparameters["GAT"]["lr"],
+                            eps=1e-4,
+                            weight_decay=config.hyperparameters["GAT"]['weight_decay'])
+# Adam(gat.parameters(), lr=config['lr'], weight_decay=config['weight_decay'])
 config.network_state=[]
 config.edge_index=[]
 
