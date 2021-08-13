@@ -8,7 +8,6 @@ import numpy as np
 from agents.Base_Agent import Base_Agent
 from exploration_strategies.Epsilon_Greedy_Exploration import Epsilon_Greedy_Exploration
 # from utilities.data_structures.Replay_Buffer import Replay_Buffer
-# TODO:reduce state diminsion  -> optimize convergence
 class DQN(Base_Agent):
     """A deep Q learning agent"""
     agent_name = "DQN"
@@ -19,7 +18,7 @@ class DQN(Base_Agent):
 
     def reset_game(self):
         super(DQN, self).reset_game()
-        self.update_learning_rate(self.hyperparameters["learning_rate"])
+        # self.update_learning_rate(self.hyperparameters["learning_rate"])
 
     def pick_action(self, states):
         """Uses the local Q network and an epsilon greedy policy to pick an action"""
@@ -107,7 +106,7 @@ class DQN(Base_Agent):
         else:
             size=network_states_batch.view(network_states_batch.size()[0],-1,4).size()
             network_state_embeding_batch=torch.empty(size[0],size[1],0)
-            breakpoint()
+            # breakpoint()
 
         
         masks_dic={}

@@ -226,26 +226,28 @@ class Base_Agent(object):
                 return ix
         return -1
 
-    def update_learning_rate(self, starting_lr):
-        """Lowers the learning rate according to how close we are to the solution"""
-        # TODO: Why this update rule?
-        if len(self.rolling_results) > 0:
-            last_rolling_score = self.rolling_results[-1]
-            if last_rolling_score > 0.75 * self.average_score_required_to_win:
-                new_lr = starting_lr / 100.0
-            elif last_rolling_score > 0.6 * self.average_score_required_to_win:
-                new_lr = starting_lr / 20.0
-            elif last_rolling_score > 0.5 * self.average_score_required_to_win:
-                new_lr = starting_lr / 10.0
-            elif last_rolling_score > 0.25 * self.average_score_required_to_win:
-                new_lr = starting_lr / 2.0
-            else:
-                new_lr = starting_lr
-            for agent in self.agent_dic.values():
-                for g in agent["optimizer"].param_groups:
-                    g['lr'] = new_lr
+    # # def update_learning_rate(self, starting_lr):
+    #     """Lowers the learning rate according to how close we are to the solution"""
+    #     # TODO: Why this update rule?
+    #     if len(self.rolling_results) > 0:
+    #         last_rolling_score = self.rolling_results[-1]
+    #         if last_rolling_score > 0.75 * self.average_score_required_to_win:
+    #             new_lr = starting_lr / 100.0
+    #         elif last_rolling_score > 0.6 * self.average_score_required_to_win:
+    #             new_lr = starting_lr / 20.0
+    #         elif last_rolling_score > 0.5 * self.average_score_required_to_win:
+    #             new_lr = starting_lr / 10.0
+    #         elif last_rolling_score > 0.25 * self.average_score_required_to_win:
+    #             new_lr = starting_lr / 2.0
+    #         else:
+    #             new_lr = starting_lr
+            
+    #         for agent in self.agent_dic.values():
+    #             for g in agent["optimizer"].param_groups:
+    #                 g['lr'] = new_lr
+            
         
-        if random.random() < 0.001: self.logger.info("Learning rate {}".format(new_lr))
+    #     if random.random() < 0.001: self.logger.info("Learning rate {}".format(new_lr))
 
 # ----------------------------------------------------------------------------------------------------------------------------
     def run_n_episodes(self, num_episodes=None, show_whether_achieved_goal=True, save_and_print_results=True):
