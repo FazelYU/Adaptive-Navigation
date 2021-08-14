@@ -40,6 +40,7 @@ if config.routing_mode in ["TTSPWRR","TTSP"]:
     config.training_mode=False
 config.does_need_network_state=config.routing_mode in ["Q_routing_2_hop","Q_routing_1_hop","Q_routing_0_hop"]
 config.does_need_network_state_embeding=config.routing_mode in ["Q_routing_2_hop","Q_routing_1_hop"]
+config.retain_graph=config.does_need_network_state_embeding
 
 config.exp_name="toronto_"+config.routing_mode
 
@@ -111,7 +112,7 @@ config.hyperparameters = {
         "final_layer_activation": None,
         "batch_norm": False,
         "gradient_clipping_norm": 5,
-        "num-new-exp-to-learn":8,
+        "num-new-exp-to-learn":1,
         "tau": 0.01,
         "discount_rate": 0.99,
         "learning_iterations": 1,

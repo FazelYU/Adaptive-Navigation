@@ -245,7 +245,7 @@ class Base_Agent(object):
     #         for agent in self.agent_dic.values():
     #             for g in agent["optimizer"].param_groups:
     #                 g['lr'] = new_lr
-            
+
         
     #     if random.random() < 0.001: self.logger.info("Learning rate {}".format(new_lr))
 
@@ -335,15 +335,18 @@ class Base_Agent(object):
         try:
             for (agent_id,loss) in agents_losses:
                 self.agent_dic[agent_id]["optimizer"].zero_grad()
-            self.config.GAT_optim.zero_grad()        
+            if self.config.does_need_network_state_embeding:
+                self.config.GAT_optim.zero_grad()        
+
         except Exception as e:
             breakpoint()        
 
+
+        
         try:
             for idx in range(len(agents_losses)):
                 loss=agents_losses[idx][1]
-                loss.backward(retain_graph=True)
-                # self.agent_dic[agent_id]['optimizer'].step()     
+                loss.backward(retain_graph=self.config.retain_graph)
         except Exception as e:
             breakpoint()
 
@@ -351,7 +354,8 @@ class Base_Agent(object):
             if clipping_norm is not None:
                 for (agent_id,loss) in agents_losses:
                     torch.nn.utils.clip_grad_norm_(self.agent_dic[agent_id]["NN"].parameters(), clipping_norm) #clip gradients to help stabilise training     
-                torch.nn.utils.clip_grad_norm_(self.config.GAT_parameters, clipping_norm) #clip gradients to help stabilise training     
+                if self.config.does_need_network_state_embeding:
+                    torch.nn.utils.clip_grad_norm_(self.config.GAT_parameters, clipping_norm) #clip gradients to help stabilise training     
                 
         except Exception as e:
             breakpoint()
@@ -359,8 +363,9 @@ class Base_Agent(object):
         try:
             for (agent_id,loss) in agents_losses:
                 self.agent_dic[agent_id]["optimizer"].step()
-
-            self.config.GAT_optim.step()
+            
+            if self.config.does_need_network_state_embeding:
+                self.config.GAT_optim.step()
         except Exception as e:
            breakpoint()
 

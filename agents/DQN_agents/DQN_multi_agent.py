@@ -180,5 +180,4 @@ class DQN(Base_Agent):
             Q_expected = self.agent_dic[agent_id]["NN"](states_embedings).gather(1, actions.long()) #must convert actions to long so can be used as index
         except Exception as e:
             breakpoint()
-        # breakpoint()
         return Q_expected
