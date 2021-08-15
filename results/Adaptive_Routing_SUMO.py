@@ -35,9 +35,9 @@ config.use_GPU = True
 config.training_mode=True
 
 routing_modes=["Q_routing_2_hop","Q_routing_1_hop","Q_routing_0_hop","Q_routing","TTSPWRR","TTSP"]
-config.routing_mode=routing_modes[3]
-if config.routing_mode in ["TTSPWRR","TTSP"]:
-    config.training_mode=False
+config.routing_mode=routing_modes[1]
+# if config.routing_mode in ["TTSPWRR","TTSP"]:
+#     config.training_mode=False
 config.does_need_network_state=config.routing_mode in ["Q_routing_2_hop","Q_routing_1_hop","Q_routing_0_hop"]
 config.does_need_network_state_embeding=config.routing_mode in ["Q_routing_2_hop","Q_routing_1_hop"]
 config.retain_graph=config.does_need_network_state_embeding

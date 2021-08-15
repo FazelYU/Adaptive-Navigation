@@ -1,5 +1,5 @@
 from collections import Counter
-
+import collections
 import torch
 import random
 import torch.optim as optim
@@ -24,8 +24,7 @@ class DQN(Base_Agent):
         """Uses the local Q network and an epsilon greedy policy to pick an action"""
         if len(states)==0:
             return []
-
-        # breakpoint()
+        
         if self.config.does_need_network_state:
             if self.config.does_need_network_state_embeding:
                 self.config.GAT.eval()
@@ -42,20 +41,14 @@ class DQN(Base_Agent):
         actions=[]
 
         for state in states:
-            # if isinstance(state, np.int64) or isinstance(state, int): state = np.array([state])
             agent_id=self.get_agent_id(state)
             intersection_state_embeding=network_state_embeding[state['agent_idx']]
-            destination_embeding=state['embeding']
-            embeding=torch.cat((destination_embeding,intersection_state_embeding),0)
-            q_network_local=self.agent_dic[agent_id]["NN"]
-            embeding=embeding.unsqueeze(0)
-            
-            q_network_local.eval() #puts network in evaluation mode
-            with torch.no_grad():
-                action_values = q_network_local(embeding)
-            q_network_local.train() #puts network back in training mode
-            
-            action_data={"action_values": action_values,
+            destination_id=state['embeding']
+            destination_id_embeding=self.get_intersection_id_embedding(agent_id,destination_id,eval=True)            
+            embeding=torch.cat((destination_id_embeding,intersection_state_embeding),0)
+            action_values=self.get_action_values(agent_id,embeding.unsqueeze(0),eval=True)
+            action_data={
+                "action_values": action_values,
                 "state": state,
                 "turn_off_exploration": self.turn_off_exploration,
                 "episode_number": self.env_episode_number}
@@ -63,6 +56,7 @@ class DQN(Base_Agent):
                 
             self.logger.info("Q values {} -- Action chosen {}".format(action_values, action))
             actions.append(action)   
+        
         return actions
    
     def learn(self):
@@ -95,7 +89,6 @@ class DQN(Base_Agent):
         not_Non_next_states=[state for state in next_states if state!=None]
         not_Non_next_states_index_dic={id(not_Non_next_states[idx]):idx for idx in range(len(not_Non_next_states))}
         network_states_batch=torch.vstack([state['network_state'].view(1,-1) for state in not_Non_next_states])
-        # network_state_embeding_batch=self.config.GAT(network_states_batch)
 
         if self.config.does_need_network_state:
             if self.config.does_need_network_state_embeding:
@@ -125,18 +118,12 @@ class DQN(Base_Agent):
         for agent_id in masks_dic:
             agent_mask=torch.Tensor(masks_dic[agent_id]["mask"]).unsqueeze(1).to(self.device,dtype=torch.bool)
             agent_states=next_states[masks_dic[agent_id]["index"]]
-            agent_states_embedings=[]
-            for state in agent_states:
-                destination_embeding=state['embeding']
-                network_state_idx=not_Non_next_states_index_dic[id(state)]
-                intersection_idx=state['agent_idx']
-                intersection_state_embeding=network_state_embeding_batch[network_state_idx][intersection_idx]
-                embeding=torch.cat((destination_embeding,intersection_state_embeding),0)
-                agent_states_embedings.append(embeding)
-            agent_states_embedings=torch.vstack(agent_states_embedings)
-
             agent_states_action_mask=torch.vstack([agent_state['action_mask'] for agent_state in agent_states])
-            
+
+            destination_ids=torch.vstack([state['embeding'] for state in agent_states])
+            destination_ids_embedings=self.get_intersection_id_embedding(agent_id,destination_ids)
+            intersec_states_embeding=torch.vstack([network_state_embeding_batch[not_Non_next_states_index_dic[id(state)]][state['agent_idx']] for state in agent_states])
+            agent_states_embedings=torch.cat((destination_ids_embedings,intersec_states_embeding),1)
             try:
                 agent_Q_targets_next=(self.agent_dic[agent_id]["NN"](agent_states_embedings)+agent_states_action_mask).detach().max(1)[0].unsqueeze(1)
             except Exception as e:
@@ -165,17 +152,21 @@ class DQN(Base_Agent):
             size=network_states_batch.view(network_states_batch.size()[0],-1,4).size()
             network_state_embeding_batch=torch.empty(size[0],size[1],0)
 
-        states_embedings=[]
-        for state in states:
-            destination_embeding=state['embeding']
-            network_state_idx=states_index_dic[id(state)]
-            intersection_idx=state['agent_idx']
-            intersection_state_embeding=network_state_embeding_batch[network_state_idx][intersection_idx]
-            embeding=torch.cat((destination_embeding,intersection_state_embeding),0)
-            states_embedings.append(embeding)
-        states_embedings=torch.vstack(states_embedings)
-
+        destination_ids=torch.vstack([state['embeding'] for state in states])
+        destination_ids_embedings=self.get_intersection_id_embedding(agent_id,destination_ids)
+        intersec_states_embeding=torch.vstack([network_state_embeding_batch[states_index_dic[id(state)]][state['agent_idx']] for state in states])
+        states_embedings=torch.cat((destination_ids_embedings,intersec_states_embeding),1)
+        # states_embedings=[]
+        # for state in states:
+        #     destination_id_embeding=state['embeding']
+        #     network_state_idx=states_index_dic[id(state)]
+        #     intersection_idx=state['agent_idx']
+        #     intersection_state_embeding=network_state_embeding_batch[network_state_idx][intersection_idx]
+        #     embeding=torch.cat((destination_id_embeding,intersection_state_embeding),0)
+        #     states_embedings.append(embeding)
         # states_embedings=torch.vstack(states_embedings)
+
+        # # states_embedings=torch.vstack(states_embedings)
         try:
             Q_expected = self.agent_dic[agent_id]["NN"](states_embedings).gather(1, actions.long()) #must convert actions to long so can be used as index
         except Exception as e:

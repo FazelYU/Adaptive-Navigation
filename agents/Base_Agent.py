@@ -45,6 +45,7 @@ class Base_Agent(object):
         gym.logger.set_level(40)  # stops it from printing an unnecessary warning
         # self.log_game_info()
         self.env_agent_dic=config.environment.utils.agent_dic
+        self.relu=torch.nn.ReLU()
         # self.summ_writer = SummaryWriter()
 
     def get_environment_title(self):
@@ -263,6 +264,8 @@ class Base_Agent(object):
             breakpoint()
         
         while self.env_episode_number < num_episodes:
+            if self.env_episode_number==num_episodes-1:
+                breakpoint()
             self.run()
             self.env_episode_number += 1
 
@@ -342,11 +345,14 @@ class Base_Agent(object):
             breakpoint()        
 
 
-        
+        num_losses=len(agents_losses)
         try:
-            for idx in range(len(agents_losses)):
+            for idx in range(num_losses):
                 loss=agents_losses[idx][1]
-                loss.backward(retain_graph=self.config.retain_graph)
+                if idx<num_losses-1:
+                    loss.backward(retain_graph=self.config.retain_graph)
+                else:
+                    loss.backward(retain_graph=False)
         except Exception as e:
             breakpoint()
 
@@ -434,6 +440,7 @@ class Base_Agent(object):
                     columns_of_data_to_be_embedded=hyperparameters["columns_of_data_to_be_embedded"],
                     embedding_dimensions=hyperparameters["embedding_dimensions"], y_range=hyperparameters["y_range"],
                     random_seed=seed).to(self.device),
+            "intersec_id_embed_layer":torch.nn.Linear(6,6),
             "memory": Replay_Buffer(self.hyperparameters["buffer_size"], self.hyperparameters["batch_size"], self.config.seed, self.device),
             "new_exp_count":0,
             # "episode_number":0,
@@ -448,6 +455,25 @@ class Base_Agent(object):
                         lr=self.hyperparameters["learning_rate"], eps=1e-4)
                
         return agent_dic    
+    
+    def get_intersection_id_embedding(self,agent_id,intersec_id,eval=False):
+        if eval:
+            self.agent_dic[agent_id]["intersec_id_embed_layer"].eval()
+            with torch.no_grad():
+                output=self.agent_dic[agent_id]["intersec_id_embed_layer"](intersec_id)
+            self.agent_dic[agent_id]["intersec_id_embed_layer"].train()
+            return self.relu(output)
+
+        return self.relu(self.agent_dic[agent_id]["intersec_id_embed_layer"](intersec_id))
+
+    def get_action_values(self,agent_id,embeding,eval=False):
+        if eval:
+            self.agent_dic[agent_id]["NN"].eval()
+            with torch.no_grad():
+                output=self.agent_dic[agent_id]["NN"](embeding)
+            self.agent_dic[agent_id]["NN"].train()
+            return output
+        return self.agent_dic[agent_id]["NN"](embeding)
 
     def turn_on_any_epsilon_greedy_exploration(self):
         """Turns off all exploration with respect to the epsilon greedy exploration strategy"""
