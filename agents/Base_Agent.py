@@ -427,7 +427,7 @@ class Base_Agent(object):
                     columns_of_data_to_be_embedded=hyperparameters["columns_of_data_to_be_embedded"],
                     embedding_dimensions=hyperparameters["embedding_dimensions"], y_range=hyperparameters["y_range"],
                     random_seed=seed).to(self.device),
-            "intersec_id_embed_layer":torch.nn.Linear(self.intersection_id_size,self.intersection_id_embedding_size),
+            "intersec_id_embed_layer":torch.nn.Linear(self.intersection_id_size,self.intersection_id_embedding_size).to(self.device),
             "memory": Replay_Buffer(self.hyperparameters["buffer_size"], self.hyperparameters["batch_size"], self.config.seed, self.device),
             "new_exp_count":0,
             "total_exp_count":0 ,

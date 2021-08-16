@@ -99,6 +99,8 @@ class Utils(object):
     def get_state(self,source_edge,source_node,sink_node):
         action_mask,action_mask_index=self.get_edge_action_mask(source_edge,source_node)
         dest_embed=self.agent_id_embedding_dic[sink_node]
+        # if dest_embed.device.type!='cuda':
+        #     breakpoint()
         # source_node_state=self.get_agent_state(source_node)
         # embeding=torch.cat((dest_embed,source_node_state),0)
 
