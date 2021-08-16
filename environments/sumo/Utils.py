@@ -117,7 +117,20 @@ class Utils(object):
                 "network_state":self.config.network_state.detach().clone()
                 }
 
+    def get_state_diminsion(self,node_id): 
+        if  self.config.does_need_network_state:
+            return self.agnet_id_embedding_size+self.max_len_out_edges
 
+        return self.agnet_id_embedding_size
+
+    def get_network_embed_size(self):
+        if  self.config.does_need_network_state:
+            return self.max_len_out_edges
+        return 0
+
+    def get_intersection_id_size(self):
+        return self.agnet_id_embedding_size
+    
     def create_network_state(self):
         return  torch.vstack([torch.zeros(self.max_len_out_edges,device=self.config.device) for agent_id in self.agent_dic]).detach()
 
@@ -141,11 +154,6 @@ class Utils(object):
                         self.network.edge_speed_dic[edge]['is_congested']=True
 
 
-    def get_state_diminsion(self,node_id): 
-        if  self.config.does_need_network_state:
-            return self.agnet_id_embedding_size+self.max_len_out_edges
-
-        return self.agnet_id_embedding_size
     
 
 

@@ -35,7 +35,7 @@ config.use_GPU = True
 config.training_mode=True
 
 routing_modes=["Q_routing_2_hop","Q_routing_1_hop","Q_routing_0_hop","Q_routing","TTSPWRR","TTSP"]
-config.routing_mode=routing_modes[1]
+config.routing_mode=routing_modes[2]
 # if config.routing_mode in ["TTSPWRR","TTSP"]:
 #     config.training_mode=False
 config.does_need_network_state=config.routing_mode in ["Q_routing_2_hop","Q_routing_1_hop","Q_routing_0_hop"]
@@ -53,7 +53,7 @@ config.should_load_model= False if  config.routing_mode== "TTSPWRR" or \
 
 config.should_save_model=config.training_mode
 # -------------------------------------------------
-config.num_episodes_to_run = 500 if config.training_mode else 10
+config.num_episodes_to_run = 1 if config.training_mode else 10
 
 config.Max_number_vc=200
 config.uniform_demand_period=5
@@ -87,8 +87,9 @@ config.randomise_random_seed = True
 config.save_model = True
 
 num_GAT_layers=1 if config.routing_mode=="Q_routing_1_hop" else 2
-num_GAT_heads_per_layer=[5]*num_GAT_layers
+num_GAT_heads_per_layer=[3]*num_GAT_layers
 num_GAT_features_per_layer=[4]*(num_GAT_layers+1)
+
 config.hyperparameters = {
     "GAT":{
     'lr': 0.01, 
@@ -105,7 +106,7 @@ config.hyperparameters = {
         "epsilon_decay_rate_denominator": config.num_episodes_to_run/100,
         "stop_exploration_episode":config.num_episodes_to_run-10,
         "random_episodes_to_run":0,
-        "linear_hidden_units": [6,8,6],
+        "linear_hidden_units": [8,6],
         "learning_rate": 0.01,
         "buffer_size": 10000,
         "batch_size": 64,

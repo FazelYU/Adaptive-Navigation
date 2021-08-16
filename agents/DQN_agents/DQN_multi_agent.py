@@ -125,7 +125,7 @@ class DQN(Base_Agent):
             intersec_states_embeding=torch.vstack([network_state_embeding_batch[not_Non_next_states_index_dic[id(state)]][state['agent_idx']] for state in agent_states])
             agent_states_embedings=torch.cat((destination_ids_embedings,intersec_states_embeding),1)
             try:
-                agent_Q_targets_next=(self.agent_dic[agent_id]["NN"](agent_states_embedings)+agent_states_action_mask).detach().max(1)[0].unsqueeze(1)
+                agent_Q_targets_next=(self.agent_dic[agent_id]["policy"](agent_states_embedings)+agent_states_action_mask).detach().max(1)[0].unsqueeze(1)
             except Exception as e:
                 breakpoint()
             Q_targets_next.masked_scatter_(agent_mask,agent_Q_targets_next)
@@ -168,7 +168,7 @@ class DQN(Base_Agent):
 
         # # states_embedings=torch.vstack(states_embedings)
         try:
-            Q_expected = self.agent_dic[agent_id]["NN"](states_embedings).gather(1, actions.long()) #must convert actions to long so can be used as index
+            Q_expected = self.agent_dic[agent_id]["policy"](states_embedings).gather(1, actions.long()) #must convert actions to long so can be used as index
         except Exception as e:
             breakpoint()
         return Q_expected

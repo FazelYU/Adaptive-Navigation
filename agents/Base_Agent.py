@@ -28,7 +28,6 @@ class Base_Agent(object):
 
         self.lowest_possible_episode_score = self.get_lowest_possible_episode_score()
 
-        # self.state_size =  int(self.get_state_size())
         self.hyperparameters = config.hyperparameters
         self.average_score_required_to_win = self.get_score_required_to_win()
         self.rolling_score_window = self.get_trials()
@@ -46,7 +45,9 @@ class Base_Agent(object):
         # self.log_game_info()
         self.env_agent_dic=config.environment.utils.agent_dic
         self.relu=torch.nn.ReLU()
-        # self.summ_writer = SummaryWriter()
+        self.intersection_id_size=self.get_intersection_id_size()
+        self.intersection_id_embedding_size=self.intersection_id_size
+        self.network_embd_size=self.get_network_embed_size()
 
     def get_environment_title(self):
         """Extracts name of environment from it"""
@@ -73,16 +74,13 @@ class Base_Agent(object):
         if self.environment_title == "Taxi": return -800
         return None
 
-    def get_state_size(self,agent_id):
-        """Gets the state_size for the gym env into the correct shape for a neural network"""
-        # random_state = self.environment.reset()
-        # if isinstance(random_state, dict):
-        #     state_size = random_state["observation"].shape[0] + random_state["desired_goal"].shape[0]
-        #     return state_size
-        # else:
-        #     return random_state.size
-        return self.environment.utils.get_state_diminsion(agent_id)
-    
+    def get_policy_input_size(self):
+        return self.intersection_id_embedding_size+self.network_embd_size
+    def get_intersection_id_size(self):
+        return self.environment.utils.get_intersection_id_size()
+    def get_network_embed_size(self):
+        return self.environment.utils.get_network_embed_size()
+
     def get_action_space_size(self,agent_id):
         return self.env_agent_dic[agent_id][1]
 
@@ -264,8 +262,8 @@ class Base_Agent(object):
             breakpoint()
         
         while self.env_episode_number < num_episodes:
-            if self.env_episode_number==num_episodes-1:
-                breakpoint()
+            # if self.env_episode_number==num_episodes-1:
+            #     breakpoint()
             self.run()
             self.env_episode_number += 1
 
@@ -359,7 +357,7 @@ class Base_Agent(object):
         try:
             if clipping_norm is not None:
                 for (agent_id,loss) in agents_losses:
-                    torch.nn.utils.clip_grad_norm_(self.agent_dic[agent_id]["NN"].parameters(), clipping_norm) #clip gradients to help stabilise training     
+                    torch.nn.utils.clip_grad_norm_(self.agent_dic[agent_id]["policy"].parameters(), clipping_norm) #clip gradients to help stabilise training     
                 if self.config.does_need_network_state_embeding:
                     torch.nn.utils.clip_grad_norm_(self.config.GAT_parameters, clipping_norm) #clip gradients to help stabilise training     
                 
@@ -379,7 +377,7 @@ class Base_Agent(object):
         #     breakpoint()
 
 
-        # network=self.agent_dic[agent_id]["NN"]
+        # network=self.agent_dic[agent_id]["policy"]
         # optimizer=self.agent_dic[agent_id]["optimizer"]
         # if not isinstance(network, list): network = [network]
         # optimizer.zero_grad() #reset gradients to 0
@@ -432,7 +430,7 @@ class Base_Agent(object):
                 hyperparameters[key] = default_hyperparameter_choices[key]
         agent_dic={
         agent_id:{\
-            "NN":NN(input_dim=self.get_state_size(agent_id), 
+            "policy":NN(input_dim=self.get_policy_input_size(), 
                     layers_info=hyperparameters["linear_hidden_units"] + [self.get_action_space_size(agent_id)],
                     output_activation=hyperparameters["final_layer_activation"],
                     batch_norm=hyperparameters["batch_norm"], dropout=hyperparameters["dropout"],
@@ -440,10 +438,9 @@ class Base_Agent(object):
                     columns_of_data_to_be_embedded=hyperparameters["columns_of_data_to_be_embedded"],
                     embedding_dimensions=hyperparameters["embedding_dimensions"], y_range=hyperparameters["y_range"],
                     random_seed=seed).to(self.device),
-            "intersec_id_embed_layer":torch.nn.Linear(6,6),
+            "intersec_id_embed_layer":torch.nn.Linear(self.intersection_id_size,self.intersection_id_embedding_size),
             "memory": Replay_Buffer(self.hyperparameters["buffer_size"], self.hyperparameters["batch_size"], self.config.seed, self.device),
             "new_exp_count":0,
-            # "episode_number":0,
             "total_exp_count":0 ,
             }
 
@@ -451,7 +448,7 @@ class Base_Agent(object):
         }
 
         for agent_id in agent_dic:
-            agent_dic[agent_id]["optimizer"]=optim.Adam(agent_dic[agent_id]["NN"].parameters(),
+            agent_dic[agent_id]["optimizer"]=optim.Adam(agent_dic[agent_id]["policy"].parameters(),
                         lr=self.hyperparameters["learning_rate"], eps=1e-4)
                
         return agent_dic    
@@ -468,12 +465,12 @@ class Base_Agent(object):
 
     def get_action_values(self,agent_id,embeding,eval=False):
         if eval:
-            self.agent_dic[agent_id]["NN"].eval()
+            self.agent_dic[agent_id]["policy"].eval()
             with torch.no_grad():
-                output=self.agent_dic[agent_id]["NN"](embeding)
-            self.agent_dic[agent_id]["NN"].train()
+                output=self.agent_dic[agent_id]["policy"](embeding)
+            self.agent_dic[agent_id]["policy"].train()
             return output
-        return self.agent_dic[agent_id]["NN"](embeding)
+        return self.agent_dic[agent_id]["policy"](embeding)
 
     def turn_on_any_epsilon_greedy_exploration(self):
         """Turns off all exploration with respect to the epsilon greedy exploration strategy"""
@@ -543,12 +540,15 @@ class Base_Agent(object):
     def save_policies(self):
         """Saves the policy"""
         for agent_id in self.agent_dic:
-            torch.save(self.agent_dic[agent_id]["NN"].state_dict(),"Models/{}/agent_{}_policy.pt".format(self.config.exp_name,agent_id))
+            torch.save(self.agent_dic[agent_id]["policy"].state_dict(),"Models/{}/agent_{}_policy.pt".format(self.config.exp_name,agent_id))
+            torch.save(self.agent_dic[agent_id]["intersec_id_embed_layer"].state_dict(),"Models/{}/agent_{}_id_embed_layer.pt".format(self.config.exp_name,agent_id))
+
         torch.save(self.config.GAT.state_dict(),"Models/{}/GAT.pt".format(self.config.exp_name))
         
         # torch.save(self.q_network_local.state_dict(), "Models/{}_local_network.pt".format(self.agent_name))
 
     def load_policies(self):
         for agent_id in self.agent_dic:
-            self.agent_dic[agent_id]["NN"].load_state_dict(torch.load("Models/{}/agent_{}_policy.pt".format(self.config.exp_name,agent_id)))
+            self.agent_dic[agent_id]["policy"].load_state_dict(torch.load("Models/{}/agent_{}_policy.pt".format(self.config.exp_name,agent_id)))
+            self.agent_dic[agent_id]["intersec_id_embed_layer"].load_state_dict(torch.load("Models/{}/agent_{}_id_embed_layer.pt".format(self.config.exp_name,agent_id)))
         self.config.GAT.load_state_dict(torch.load("Models/{}/GAT.pt".format(self.config.exp_name)))
