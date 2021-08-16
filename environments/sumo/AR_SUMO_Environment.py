@@ -412,7 +412,7 @@ class AR_SUMO_Environment(gym.Env):
 
 		def init_traci(self):
 			sys.path.append(os.path.join(Constants['SUMO_PATH'], os.sep, 'tools'))
-			sumoBinary = Constants["SUMO_SHELL_PATH"]
+			sumoBinary = Constants["SUMO_GUI_PATH"]
 			self.sumoCmd = [sumoBinary, '-S', '-d', Constants['Simulation_Delay'], "-c", Constants["SUMO_CONFIG"],"--no-warnings","true"]
 			traci.start(self.sumoCmd)
 		

@@ -266,23 +266,12 @@ class Base_Agent(object):
             #     breakpoint()
             self.run()
             self.env_episode_number += 1
-
-            # for agent_id in self.agent_dic:
-            #     # BUG: when memory is full the rate of the exploration stalls decreasing
-            #     # self.summ_writer.add_scalar('Memory_Length/'+str(agent_id),self.agent_dic[agent_id]["memory"].__len__(),self.env_episode_number)
-
-            #     # if self.agent_dic[agent_id]["total_exp_count"]<self.agent_dic[agent_id]["memory"].__len__():
-            #     #     self.agent_dic[agent_id]["total_exp_count"]=self.agent_dic[agent_id]["memory"].__len__()
-            #     self.agent_dic[agent_id]["episode_number"]+=1
-
+            if self.config.should_save_model: self.save_policies()
             if save_and_print_results: self.save_and_print_result()
-
 
 
         time_taken = time.time() - start
         if show_whether_achieved_goal: self.show_whether_achieved_goal()
-        if self.config.should_save_model: self.save_policies()
-        # self.summ_writer.close()
         return self.game_full_episode_scores, self.rolling_results, time_taken
 
     def run(self):
