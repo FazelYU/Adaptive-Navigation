@@ -35,7 +35,7 @@ config.use_GPU = True
 config.training_mode=True
 
 routing_modes=["Q_routing_2_hop","Q_routing_1_hop","Q_routing_0_hop","Q_routing","TTSPWRR","TTSP"]
-config.routing_mode=routing_modes[2]
+config.routing_mode=routing_modes[0]
 # if config.routing_mode in ["TTSPWRR","TTSP"]:
 #     config.training_mode=False
 config.does_need_network_state=config.routing_mode in ["Q_routing_2_hop","Q_routing_1_hop","Q_routing_0_hop"]
@@ -53,7 +53,7 @@ config.should_load_model= False if  config.routing_mode== "TTSPWRR" or \
 
 config.should_save_model=config.training_mode
 # -------------------------------------------------
-config.num_episodes_to_run = 1 if config.training_mode else 10
+config.num_episodes_to_run = 800 if config.training_mode else 10
 
 config.Max_number_vc=200
 config.uniform_demand_period=5
