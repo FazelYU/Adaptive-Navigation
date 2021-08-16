@@ -448,8 +448,8 @@ class Base_Agent(object):
         }
 
         for agent_id in agent_dic:
-            agent_dic[agent_id]["optimizer"]=optim.Adam([agent_dic[agent_id]["policy"].parameters()]\
-                                                        +[agent_dic[agent_id]["intersec_id_embed_layer"].parameters()],\
+            agent_dic[agent_id]["optimizer"]=optim.Adam(list(agent_dic[agent_id]["policy"].parameters())\
+                                                        +list(agent_dic[agent_id]["intersec_id_embed_layer"].parameters()),\
                         lr=self.hyperparameters["learning_rate"], eps=1e-4)
                
         return agent_dic    
