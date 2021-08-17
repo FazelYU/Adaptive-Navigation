@@ -109,14 +109,13 @@ class Utils(object):
         #         assert(len(embeding)==self.get_state_diminsion(source_node))
         #     except Exception as e:
         #         breakpoint()
-            
         return {
                 "agent_id": source_node,
                 "agent_idx": self.agent_index_dic[source_node],
                 "action_mask": action_mask,
                 "action_mask_index":action_mask_index,
-                "embeding": dest_embed,
-                "network_state":self.config.network_state.detach().clone()
+                "embeding": torch.cat((dest_embed,self.config.network_state.detach().clone().view(-1)),-1)
+                # "network_state":self.config.network_state.detach().clone()
                 }
 
     def get_state_diminsion(self,node_id): 

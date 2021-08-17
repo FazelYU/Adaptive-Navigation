@@ -44,8 +44,8 @@ config.retain_graph=config.does_need_network_state_embeding
 
 config.exp_name="toronto_"+config.routing_mode
 
-assert(torch.cuda.is_available())
-config.device = torch.device("cuda" if torch.cuda.is_available() else "cpu") #device is cpu
+# assert(torch.cuda.is_available())
+config.device = torch.device(0)
 config.seed = 1
 config.envm_seed=100
 config.should_load_model= False if  config.routing_mode== "TTSPWRR" or \
@@ -56,7 +56,7 @@ config.should_save_model=False if  config.routing_mode== "TTSPWRR" or \
                                     config.training_mode
 
 # -------------------------------------------------
-config.num_episodes_to_run = 5 if config.training_mode else 10
+config.num_episodes_to_run = 800 if config.training_mode else 10
 
 config.Max_number_vc=200
 config.uniform_demand_period=5
