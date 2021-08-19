@@ -48,7 +48,7 @@ init_traci()
 networkModel = RoadNetworkModel(Constants["ROOT"], Constants["Network_XML"])
 agent_dic=create_agent_dic()
 
-treeNET = ET.parse('./environments/sumo/networks/toronto/toronto.net.xml')
+treeNET = ET.parse(Constants["Network_XML"])
 rootNET=treeNET.getroot()
 # treeADD=ET.parse('./environments/sumo/networks/toronto/toronto_additional.add.ET')
 # rootADD = treeADD.getroot()
@@ -66,7 +66,7 @@ for edge_xml in rootNET.findall('edge'):
         if Decimal(lane_xml.attrib['speed'])>=50:
             reposition_il(edge_xml,lane_xml,240)
         else:
-            reposition_il(edge_xml,lane_xml,70)
+            reposition_il(edge_xml,lane_xml,20)
 
 
 
@@ -88,5 +88,5 @@ for lane in induction_loops_dic:
 treeADD = ET.ElementTree(rootADD)
 breakpoint()
 
-with open('./environments/sumo/networks/toronto/toronto_additional.add.xml', 'w') as f:
+with open(Constants['Additional_XML'], 'w') as f:
     treeADD.write(f, encoding='unicode')

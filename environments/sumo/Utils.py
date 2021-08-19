@@ -10,15 +10,16 @@ import pymorton as pm
 
 import math
 
-
+NETWORK="5x6"
 Constants = {
-    "EXP":"3x3",
+    "NETWORK":NETWORK,
     "SUMO_PATH" : "/usr/share/sumo", #path to sumo in your system
     "SUMO_GUI_PATH" : "/usr/share/sumo/bin/sumo-gui", #path to sumo-gui bin in your system
     "SUMO_SHELL_PATH":"/usr/share/sumo/bin/sumo",
-    "SUMO_CONFIG" : "./environments/sumo/networks/toronto/network.sumocfg", #path to your sumo config file
+    "SUMO_CONFIG" : "./environments/sumo/networks/{}/network.sumocfg".format(NETWORK), #path to your sumo config file
     "ROOT" : "./",
-    "Network_XML" : "./environments/sumo/networks/toronto/toronto.net.xml",
+    "Network_XML" : "./environments/sumo/networks/{}/{}.net.xml".format(NETWORK,NETWORK),
+    'Additional_XML':"./environments/sumo/networks/{}/{}_additional.add.xml".format(NETWORK,NETWORK),
     'Analysis_Mode': True,
     'LOG' : False,
     'WARNINGS': False,
@@ -31,22 +32,7 @@ Constants = {
 
     'vc_road_ID_subscribtion_code': 0x50,
     'vc_lane_ID_subscribtion_code':0x51,
-    # # 'congestion_prone_arterials':{1:['207223487#0','124690744#0','30430773#0','4281719#0','43128290','gneE18'],
-    # #                             -1:['-gneE18','204493904#0','-4281719#2','-234733018#0','-354354332#2','-207223487#1','-33910433#2'],
-    # #                             2:['695753527#1','277877819#0','263506114#5','33023072#0.23','33023075#0','445695121','33024556#0','33025451#0','33025456','449550551#0']
-    # #                             -2:['-695753527#1','-277877819#2','-263506114#9.27','-33023072#3','-33023075#4','-33024553#3','-33024556#1','-33025451#1','-33025456','-449550551#2']
-    # #                             3:['445865881','4651746#0','222151618#5','5686883#0','220918438#0','446971622#0','4321248#0','35159934#0','248489460#0','35155500','35155501','-446994466#4']
-    # #                             -3:[]
-    # #                             4:[]
-    # #                             -4:[]
-    # #                             5:[]
-    # #                             -5:[]
-    # #                             6:[]
-    # #                             -6:[]
-    # #                                 }
-    # 'congestion_prone_arterials':{
-    # 1:['21631714','24959524','20979763','20964581','20964462','20964582','20953780','gneJ0']
-    # }
+
 
     }
 

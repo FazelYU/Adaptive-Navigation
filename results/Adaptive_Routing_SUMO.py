@@ -42,9 +42,10 @@ config.does_need_network_state=config.routing_mode in ["Q_routing_2_hop","Q_rout
 config.does_need_network_state_embeding=config.routing_mode in ["Q_routing_2_hop","Q_routing_1_hop"]
 config.retain_graph=config.does_need_network_state_embeding
 
-config.exp_name="toronto_"+config.routing_mode
+config.network_name="5x6"
+config.exp_name=config.routing_mode
 
-# assert(torch.cuda.is_available())
+assert(torch.cuda.is_available())
 config.device = torch.device(0)
 config.seed = 1
 config.envm_seed=100
@@ -69,11 +70,14 @@ config.demand_scale=1
 config.congestion_epsilon=0.25
 config.congestion_speed_factor=0.1
 
-config.biased_demand=[['23973402#0','435629850']] #list of the biased O-D demands 
+# config.biased_demand=[['23973402#0','435629850']] #list of the biased O-D demands 
+config.biased_demand=[['-gneE19','-gneE25']]
+
 config.uniform_demands=[
         [trip_xml.attrib["origin"],trip_xml.attrib["destination"]] 
             for trip_xml in rootTrips.findall("trip")
             ]
+
 config.next_uniform_demand_index=0
 config.num_biased_vc_dispatched=0
 config.num_uniform_vc_dispatched=0
@@ -96,7 +100,7 @@ num_GAT_features_per_layer=[4]*(num_GAT_layers+1)
 config.hyperparameters = {
     "GAT":{
     'lr': 0.01, 
-    'weight_decay': 0.0005, 
+    # 'weight_decay': 0.0005, 
     'num_of_layers': num_GAT_layers, 
     'num_heads_per_layer': num_GAT_heads_per_layer, 
     'num_features_per_layer': num_GAT_features_per_layer, 

@@ -530,15 +530,15 @@ class Base_Agent(object):
     def save_policies(self):
         """Saves the policy"""
         for agent_id in self.agent_dic:
-            torch.save(self.agent_dic[agent_id]["policy"].state_dict(),"Models/{}/agent_{}_policy.pt".format(self.config.exp_name,agent_id))
-            torch.save(self.agent_dic[agent_id]["intersec_id_embed_layer"].state_dict(),"Models/{}/agent_{}_id_embed_layer.pt".format(self.config.exp_name,agent_id))
+            torch.save(self.agent_dic[agent_id]["policy"].state_dict(),"Models/{}/{}/agent_{}_policy.pt".format(self.config.network_name,self.config.exp_name,agent_id))
+            torch.save(self.agent_dic[agent_id]["intersec_id_embed_layer"].state_dict(),"Models/{}/{}/agent_{}_id_embed_layer.pt".format(self.config.network_name,self.config.exp_name,agent_id))
 
-        torch.save(self.config.GAT.state_dict(),"Models/{}/GAT.pt".format(self.config.exp_name))
+        torch.save(self.config.GAT.state_dict(),"Models/{}/{}/GAT.pt".format(self.config.network_name,self.config.exp_name))
         
         # torch.save(self.q_network_local.state_dict(), "Models/{}_local_network.pt".format(self.agent_name))
 
     def load_policies(self):
         for agent_id in self.agent_dic:
-            self.agent_dic[agent_id]["policy"].load_state_dict(torch.load("Models/{}/agent_{}_policy.pt".format(self.config.exp_name,agent_id)))
-            self.agent_dic[agent_id]["intersec_id_embed_layer"].load_state_dict(torch.load("Models/{}/agent_{}_id_embed_layer.pt".format(self.config.exp_name,agent_id)))
-        self.config.GAT.load_state_dict(torch.load("Models/{}/GAT.pt".format(self.config.exp_name)))
+            self.agent_dic[agent_id]["policy"].load_state_dict(torch.load("Models/{}/{}/agent_{}_policy.pt".format(self.config.network_name,self.config.exp_name,agent_id)))
+            self.agent_dic[agent_id]["intersec_id_embed_layer"].load_state_dict(torch.load("Models/{}/{}/agent_{}_id_embed_layer.pt".format(self.config.network_name,self.config.exp_name,agent_id)))
+        self.config.GAT.load_state_dict(torch.load("Models/{}/{}/GAT.pt".format(self.config.network_name,self.config.exp_name)))

@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- generated on 2021-08-19 09:22:43 by Eclipse SUMO netedit Version 1.9.2
+<configuration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/netconvertConfiguration.xsd">
+
+    <input>
+        <sumo-net-file value="/home/fazel/Adaptive_Routing_W_Q_Learning_main/environments/sumo/networks/5x6/5x6.net.xml"/>
+    </input>
+
+    <output>
+        <output-file value="/home/fazel/Adaptive_Routing_W_Q_Learning_main/environments/sumo/networks/5x6/5x6.net.xml"/>
+    </output>
+
+    <processing>
+        <geometry.min-radius.fix.railways value="false"/>
+        <geometry.max-grade.fix value="false"/>
+        <offset.disable-normalization value="true"/>
+        <lefthand value="false"/>
+    </processing>
+
+    <junctions>
+        <no-turnarounds value="true"/>
+        <junctions.corner-detail value="5"/>
+        <junctions.limit-turn-speed value="5.5"/>
+        <rectangular-lane-cut value="false"/>
+    </junctions>
+
+    <pedestrian>
+        <walkingareas value="false"/>
+    </pedestrian>
+
+    <netedit>
+        <additional-files value="/home/fazel/Adaptive_Routing_W_Q_Learning_main/environments/sumo/networks/5x6/5x6_additional.add.xml"/>
+    </netedit>
+
+    <report>
+        <aggregate-warnings value="5"/>
+    </report>
+
+</configuration>
+-->
+
+<additional xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/additional_file.xsd">
+    <e1Detector id="Detector_-gneE16_0" lane="-gneE16_0" pos="65.60" freq="900.00" file="Detector-gneE16_0.xml"/>
+    <e1Detector id="Detector_-gneE17_0" lane="-gneE17_0" pos="65.60" freq="900.00" file="Detector-gneE17_0.xml"/>
+    <e1Detector id="Detector_-gneE18_0" lane="-gneE18_0" pos="65.60" freq="900.00" file="Detector-gneE18_0.xml"/>
+    <e1Detector id="Detector_-gneE19_0" lane="-gneE19_0" pos="69.60" freq="900.00" file="Detector-gneE19_0.xml"/>
+    <e1Detector id="Detector_-gneE1_0" lane="-gneE1_0" pos="65.60" freq="900.00" file="Detector-gneE1_0.xml"/>
+    <e1Detector id="Detector_-gneE21_0" lane="-gneE21_0" pos="65.60" freq="900.00" file="Detector-gneE21_0.xml"/>
+    <e1Detector id="Detector_-gneE22_0" lane="-gneE22_0" pos="65.60" freq="900.00" file="Detector-gneE22_0.xml"/>
+    <e1Detector id="Detector_-gneE23_0" lane="-gneE23_0" pos="69.60" freq="900.00" file="Detector-gneE23_0.xml"/>
+    <e1Detector id="Detector_-gneE25_0" lane="-gneE25_0" pos="65.60" freq="900.00" file="Detector-gneE25_0.xml"/>
+    <e1Detector id="Detector_-gneE26_0" lane="-gneE26_0" pos="65.60" freq="900.00" file="Detector-gneE26_0.xml"/>
+    <e1Detector id="Detector_-gneE27_0" lane="-gneE27_0" pos="65.60" freq="900.00" file="Detector-gneE27_0.xml"/>
+    <e1Detector id="Detector_-gneE28_0" lane="-gneE28_0" pos="65.60" freq="900.00" file="Detector-gneE28_0.xml"/>
+    <e1Detector id="Detector_-gneE29_0" lane="-gneE29_0" pos="65.60" freq="900.00" file="Detector-gneE29_0.xml"/>
+    <e1Detector id="Detector_-gneE2_0" lane="-gneE2_0" pos="65.60" freq="900.00" file="Detector-gneE2_0.xml"/>
+    <e1Detector id="Detector_-gneE30_0" lane="-gneE30_0" pos="65.60" freq="900.00" file="Detector-gneE30_0.xml"/>
+    <e1Detector id="Detector_-gneE31_0" lane="-gneE31_0" pos="65.60" freq="900.00" file="Detector-gneE31_0.xml"/>
+    <e1Detector id="Detector_-gneE32_0" lane="-gneE32_0" pos="65.60" freq="900.00" file="Detector-gneE32_0.xml"/>
+    <e1Detector id="Detector_-gneE33_0" lane="-gneE33_0" pos="65.60" freq="900.00" file="Detector-gneE33_0.xml"/>
+    <e1Detector id="Detector_-gneE34_0" lane="-gneE34_0" pos="65.60" freq="900.00" file="Detector-gneE34_0.xml"/>
+    <e1Detector id="Detector_-gneE35_0" lane="-gneE35_0" pos="65.60" freq="900.00" file="Detector-gneE35_0.xml"/>
+    <e1Detector id="Detector_-gneE36_0" lane="-gneE36_0" pos="65.60" freq="900.00" file="Detector-gneE36_0.xml"/>
+    <e1Detector id="Detector_-gneE37_0" lane="-gneE37_0" pos="65.60" freq="900.00" file="Detector-gneE37_0.xml"/>
+    <e1Detector id="Detector_-gneE38_0" lane="-gneE38_0" pos="65.60" freq="900.00" file="Detector-gneE38_0.xml"/>
+    <e1Detector id="Detector_-gneE39_0" lane="-gneE39_0" pos="65.60" freq="900.00" file="Detector-gneE39_0.xml"/>
+    <e1Detector id="Detector_-gneE3_0" lane="-gneE3_0" pos="69.60" freq="900.00" file="Detector-gneE3_0.xml"/>
+    <e1Detector id="Detector_-gneE40_0" lane="-gneE40_0" pos="65.60" freq="900.00" file="Detector-gneE40_0.xml"/>
+    <e1Detector id="Detector_-gneE41_0" lane="-gneE41_0" pos="65.60" freq="900.00" file="Detector-gneE41_0.xml"/>
+    <e1Detector id="Detector_-gneE42_0" lane="-gneE42_0" pos="65.60" freq="900.00" file="Detector-gneE42_0.xml"/>
+    <e1Detector id="Detector_-gneE43_0" lane="-gneE43_0" pos="65.60" freq="900.00" file="Detector-gneE43_0.xml"/>
+    <e1Detector id="Detector_-gneE44_0" lane="-gneE44_0" pos="65.60" freq="900.00" file="Detector-gneE44_0.xml"/>
+    <e1Detector id="Detector_-gneE45_0" lane="-gneE45_0" pos="65.60" freq="900.00" file="Detector-gneE45_0.xml"/>
+    <e1Detector id="Detector_-gneE46_0" lane="-gneE46_0" pos="65.60" freq="900.00" file="Detector-gneE46_0.xml"/>
+    <e1Detector id="Detector_-gneE47_0" lane="-gneE47_0" pos="65.60" freq="900.00" file="Detector-gneE47_0.xml"/>
+    <e1Detector id="Detector_-gneE48_0" lane="-gneE48_0" pos="65.60" freq="900.00" file="Detector-gneE48_0.xml"/>
+    <e1Detector id="Detector_-gneE49_0" lane="-gneE49_0" pos="65.60" freq="900.00" file="Detector-gneE49_0.xml"/>
+    <e1Detector id="Detector_-gneE50_0" lane="-gneE50_0" pos="65.60" freq="900.00" file="Detector-gneE50_0.xml"/>
+    <e1Detector id="Detector_-gneE51_0" lane="-gneE51_0" pos="65.60" freq="900.00" file="Detector-gneE51_0.xml"/>
+    <e1Detector id="Detector_-gneE52_0" lane="-gneE52_0" pos="65.60" freq="900.00" file="Detector-gneE52_0.xml"/>
+    <e1Detector id="Detector_-gneE53_0" lane="-gneE53_0" pos="65.60" freq="900.00" file="Detector-gneE53_0.xml"/>
+    <e1Detector id="Detector_-gneE54_0" lane="-gneE54_0" pos="65.60" freq="900.00" file="Detector-gneE54_0.xml"/>
+    <e1Detector id="Detector_-gneE55_0" lane="-gneE55_0" pos="65.60" freq="900.00" file="Detector-gneE55_0.xml"/>
+    <e1Detector id="Detector_-gneE5_0" lane="-gneE5_0" pos="65.60" freq="900.00" file="Detector-gneE5_0.xml"/>
+    <e1Detector id="Detector_-gneE6_0" lane="-gneE6_0" pos="65.60" freq="900.00" file="Detector-gneE6_0.xml"/>
+    <e1Detector id="Detector_-gneE7_0" lane="-gneE7_0" pos="65.60" freq="900.00" file="Detector-gneE7_0.xml"/>
+    <e1Detector id="Detector_-gneE8_0" lane="-gneE8_0" pos="69.60" freq="900.00" file="Detector-gneE8_0.xml"/>
+    <e1Detector id="Detector_gneE0_0" lane="gneE0_0" pos="69.60" freq="900.00" file="DetectorgneE0_0.xml"/>
+    <e1Detector id="Detector_gneE15_0" lane="gneE15_0" pos="69.60" freq="900.00" file="DetectorgneE15_0.xml"/>
+    <e1Detector id="Detector_gneE16_0" lane="gneE16_0" pos="65.60" freq="900.00" file="DetectorgneE16_0.xml"/>
+    <e1Detector id="Detector_gneE17_0" lane="gneE17_0" pos="65.60" freq="900.00" file="DetectorgneE17_0.xml"/>
+    <e1Detector id="Detector_gneE18_0" lane="gneE18_0" pos="65.60" freq="900.00" file="DetectorgneE18_0.xml"/>
+    <e1Detector id="Detector_gneE1_0" lane="gneE1_0" pos="65.60" freq="900.00" file="DetectorgneE1_0.xml"/>
+    <e1Detector id="Detector_gneE20_0" lane="gneE20_0" pos="69.60" freq="900.00" file="DetectorgneE20_0.xml"/>
+    <e1Detector id="Detector_gneE21_0" lane="gneE21_0" pos="65.60" freq="900.00" file="DetectorgneE21_0.xml"/>
+    <e1Detector id="Detector_gneE22_0" lane="gneE22_0" pos="65.60" freq="900.00" file="DetectorgneE22_0.xml"/>
+    <e1Detector id="Detector_gneE25_0" lane="gneE25_0" pos="65.60" freq="900.00" file="DetectorgneE25_0.xml"/>
+    <e1Detector id="Detector_gneE26_0" lane="gneE26_0" pos="65.60" freq="900.00" file="DetectorgneE26_0.xml"/>
+    <e1Detector id="Detector_gneE27_0" lane="gneE27_0" pos="65.60" freq="900.00" file="DetectorgneE27_0.xml"/>
+    <e1Detector id="Detector_gneE28_0" lane="gneE28_0" pos="65.60" freq="900.00" file="DetectorgneE28_0.xml"/>
+    <e1Detector id="Detector_gneE29_0" lane="gneE29_0" pos="65.60" freq="900.00" file="DetectorgneE29_0.xml"/>
+    <e1Detector id="Detector_gneE2_0" lane="gneE2_0" pos="65.60" freq="900.00" file="DetectorgneE2_0.xml"/>
+    <e1Detector id="Detector_gneE30_0" lane="gneE30_0" pos="65.60" freq="900.00" file="DetectorgneE30_0.xml"/>
+    <e1Detector id="Detector_gneE31_0" lane="gneE31_0" pos="65.60" freq="900.00" file="DetectorgneE31_0.xml"/>
+    <e1Detector id="Detector_gneE32_0" lane="gneE32_0" pos="65.60" freq="900.00" file="DetectorgneE32_0.xml"/>
+    <e1Detector id="Detector_gneE33_0" lane="gneE33_0" pos="65.60" freq="900.00" file="DetectorgneE33_0.xml"/>
+    <e1Detector id="Detector_gneE34_0" lane="gneE34_0" pos="65.60" freq="900.00" file="DetectorgneE34_0.xml"/>
+    <e1Detector id="Detector_gneE35_0" lane="gneE35_0" pos="65.60" freq="900.00" file="DetectorgneE35_0.xml"/>
+    <e1Detector id="Detector_gneE36_0" lane="gneE36_0" pos="65.60" freq="900.00" file="DetectorgneE36_0.xml"/>
+    <e1Detector id="Detector_gneE37_0" lane="gneE37_0" pos="65.60" freq="900.00" file="DetectorgneE37_0.xml"/>
+    <e1Detector id="Detector_gneE38_0" lane="gneE38_0" pos="65.60" freq="900.00" file="DetectorgneE38_0.xml"/>
+    <e1Detector id="Detector_gneE39_0" lane="gneE39_0" pos="65.60" freq="900.00" file="DetectorgneE39_0.xml"/>
+    <e1Detector id="Detector_gneE40_0" lane="gneE40_0" pos="65.60" freq="900.00" file="DetectorgneE40_0.xml"/>
+    <e1Detector id="Detector_gneE41_0" lane="gneE41_0" pos="65.60" freq="900.00" file="DetectorgneE41_0.xml"/>
+    <e1Detector id="Detector_gneE42_0" lane="gneE42_0" pos="65.60" freq="900.00" file="DetectorgneE42_0.xml"/>
+    <e1Detector id="Detector_gneE43_0" lane="gneE43_0" pos="65.60" freq="900.00" file="DetectorgneE43_0.xml"/>
+    <e1Detector id="Detector_gneE44_0" lane="gneE44_0" pos="65.60" freq="900.00" file="DetectorgneE44_0.xml"/>
+    <e1Detector id="Detector_gneE45_0" lane="gneE45_0" pos="65.60" freq="900.00" file="DetectorgneE45_0.xml"/>
+    <e1Detector id="Detector_gneE46_0" lane="gneE46_0" pos="65.60" freq="900.00" file="DetectorgneE46_0.xml"/>
+    <e1Detector id="Detector_gneE47_0" lane="gneE47_0" pos="65.60" freq="900.00" file="DetectorgneE47_0.xml"/>
+    <e1Detector id="Detector_gneE48_0" lane="gneE48_0" pos="65.60" freq="900.00" file="DetectorgneE48_0.xml"/>
+    <e1Detector id="Detector_gneE49_0" lane="gneE49_0" pos="65.60" freq="900.00" file="DetectorgneE49_0.xml"/>
+    <e1Detector id="Detector_gneE4_0" lane="gneE4_0" pos="69.60" freq="900.00" file="DetectorgneE4_0.xml"/>
+    <e1Detector id="Detector_gneE50_0" lane="gneE50_0" pos="65.60" freq="900.00" file="DetectorgneE50_0.xml"/>
+    <e1Detector id="Detector_gneE51_0" lane="gneE51_0" pos="65.60" freq="900.00" file="DetectorgneE51_0.xml"/>
+    <e1Detector id="Detector_gneE52_0" lane="gneE52_0" pos="65.60" freq="900.00" file="DetectorgneE52_0.xml"/>
+    <e1Detector id="Detector_gneE53_0" lane="gneE53_0" pos="65.60" freq="900.00" file="DetectorgneE53_0.xml"/>
+    <e1Detector id="Detector_gneE54_0" lane="gneE54_0" pos="65.60" freq="900.00" file="DetectorgneE54_0.xml"/>
+    <e1Detector id="Detector_gneE55_0" lane="gneE55_0" pos="65.60" freq="900.00" file="DetectorgneE55_0.xml"/>
+    <e1Detector id="Detector_gneE5_0" lane="gneE5_0" pos="65.60" freq="900.00" file="DetectorgneE5_0.xml"/>
+    <e1Detector id="Detector_gneE6_0" lane="gneE6_0" pos="65.60" freq="900.00" file="DetectorgneE6_0.xml"/>
+    <e1Detector id="Detector_gneE7_0" lane="gneE7_0" pos="65.60" freq="900.00" file="DetectorgneE7_0.xml"/>
+</additional>
