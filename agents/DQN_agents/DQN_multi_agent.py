@@ -15,6 +15,7 @@ class DQN(Base_Agent):
         Base_Agent.__init__(self, config)
         self.agent_dic = self.create_agent_dic()
         self.exploration_strategy = Epsilon_Greedy_Exploration(config)
+        # self.environment.utils.vis_intersec_id_embedding(agent_id='gneJ1',transform_func=self.get_intersection_id_embedding)
 
     def reset_game(self):
         super(DQN, self).reset_game()

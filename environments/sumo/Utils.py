@@ -7,10 +7,16 @@ import traci
 from inspect import currentframe, getframeinfo
 import networkx as nx
 import pymorton as pm
-
+import pandas as pd
+from sklearn.manifold import TSNE
 import math
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+import seaborn as sns
+from sklearn.decomposition import PCA
 
-NETWORK="5x6"
+
+NETWORK="toronto"
 Constants = {
     "NETWORK":NETWORK,
     "SUMO_PATH" : "/usr/share/sumo", #path to sumo in your system
@@ -60,8 +66,12 @@ class Utils(object):
         
 
         self.agent_dic=self.create_agent_dic()#{node:[len(in edges), len(out edges)]}
-        self.agent_id_embedding_dic,self.agnet_id_embedding_size=self.create_agent_id_embedding_dic()
         self.agent_list=list(self.agent_dic)
+        
+        self.agent_id_embedding_dic,self.agnet_id_embedding_size=self.create_agent_id_embedding_dic()
+        self.agent_label_dic=self.create_agent_labels_dic()
+        # self.tSNE_plot()
+
         self.agent_index_dic={self.agent_list[idx]:idx for idx in range(len(self.agent_list))}
         self.agent_path_dic=self.create_agent_path_dic()
         self.agent_adjacency_list_dict=self.create_agent_adjacency_list_dic()
@@ -264,7 +274,74 @@ class Utils(object):
 
         return agent_embedding_dic,ID_size
 
+    def create_agent_labels_dic(self):
+        agent_label_dic={}
+        positions=numpy.array([list(traci.junction.getPosition(agent_id)) for agent_id in self.agent_list])
+        max_X,max_Y=positions.max(0)
+        min_X,min_Y=positions.min(0)
+        range_X=max_X-min_X
+        range_Y=max_Y-min_Y
+        for agent_id in self.agent_dic:
+            x,y=traci.junction.getPosition(agent_id)
+            if x==max_X:
+                x-=0.001
+            if y==max_Y:
+                y-=0.001
 
+            i=math.floor((x-min_X)/range_X*3)
+            j=math.floor((y-min_Y)/range_Y*3)
+            label=str(j*3+i)
+            agent_label_dic[agent_id]=label
+
+        y=numpy.array([agent_label_dic[agent_id] for agent_id in self.agent_dic])
+        return agent_label_dic
+
+
+
+    def vis_intersec_id_embedding(self,agent_id,transform_func):
+        X=torch.vstack([self.agent_id_embedding_dic[agent_id] for agent_id in self.agent_dic])
+        X_trns=transform_func(agent_id,X)
+        
+        X=X.detach().cpu().numpy()
+        X_trns=X_trns.detach().cpu().numpy()
+        
+        y=numpy.array([self.agent_label_dic[agent_id] for agent_id in self.agent_dic])
+        
+        # self.tSNE_plot(X,y)
+        # self.tSNE_plot(X_trns,y)
+        self.pca_plot(X,y)
+        self.pca_plot(X_trns,y)
+        plt.show()
+        breakpoint()
+
+    def tSNE_plot(self,X,y):
+        df=pd.DataFrame(X)
+        df['label']=y
+        df.groupby('label', as_index=False).size().plot(kind='bar')
+        tsne = TSNE(n_components=2, verbose=1, perplexity=10, n_iter=400)
+        tsne_results = tsne.fit_transform(df)
+        df['tsne-2d-one'] = tsne_results[:,0]
+        df['tsne-2d-two'] = tsne_results[:,1]
+        plt.figure(figsize=(16,10))
+        sns.scatterplot(x="tsne-2d-one", y="tsne-2d-two",hue="label",size="label",data=df,legend="full")
+        # alpha=0.3
+    
+    def pca_plot(self,X,y):
+        df=pd.DataFrame(X)
+        df['label']=y
+        df.groupby('label', as_index=False).size().plot(kind='bar')
+        pca = PCA(n_components=2)
+        pca_result = pca.fit_transform(df)
+        df['pca-one'] = pca_result[:,0]
+        df['pca-two'] = pca_result[:,1] 
+        print('Explained variation per principal component: {}'.format(pca.explained_variance_ratio_))
+        # tsne = TSNE(n_components=2, verbose=1, perplexity=4, n_iter=400)
+        # tsne_results = tsne.fit_transform(df)
+        # df['tsne-2d-one'] = tsne_results[:,0]
+        # df['tsne-2d-two'] = tsne_results[:,1]
+        plt.figure(figsize=(16,10))
+        sns.scatterplot(x="pca-one", y="pca-two",hue="label",size="label",style="label",data=df,legend="full")
+  
 
     def create_agent_path_dic(self):
         agent_paths={}

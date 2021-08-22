@@ -32,17 +32,17 @@ rootTrips = treeTrips.getroot()
 
 config = Config()
 config.use_GPU = True
-config.training_mode=True
+config.training_mode=False
 
 routing_modes=["Q_routing_2_hop","Q_routing_1_hop","Q_routing_0_hop","Q_routing","TTSPWRR","TTSP"]
-config.routing_mode=routing_modes[0]
+config.routing_mode=routing_modes[5]
 # if config.routing_mode in ["TTSPWRR","TTSP"]:
 #     config.training_mode=False
 config.does_need_network_state=config.routing_mode in ["Q_routing_2_hop","Q_routing_1_hop","Q_routing_0_hop"]
 config.does_need_network_state_embeding=config.routing_mode in ["Q_routing_2_hop","Q_routing_1_hop"]
 config.retain_graph=config.does_need_network_state_embeding
 
-config.network_name="5x6"
+config.network_name="toronto"
 config.exp_name=config.routing_mode
 
 assert(torch.cuda.is_available())
@@ -57,7 +57,7 @@ config.should_save_model=False if  config.routing_mode== "TTSPWRR" or \
                                     config.training_mode
 
 # -------------------------------------------------
-config.num_episodes_to_run = 800 if config.training_mode else 10
+config.num_episodes_to_run = 800 if config.training_mode else 5
 
 config.Max_number_vc=200
 config.uniform_demand_period=5
@@ -70,8 +70,8 @@ config.demand_scale=1
 config.congestion_epsilon=0.25
 config.congestion_speed_factor=0.1
 
-# config.biased_demand=[['23973402#0','435629850']] #list of the biased O-D demands 
-config.biased_demand=[['-gneE19','-gneE25']]
+config.biased_demand=[['23973402#0','435629850']] #list of the biased O-D demands 
+# config.biased_demand=[['-gneE19','-gneE25']]
 
 config.uniform_demands=[
         [trip_xml.attrib["origin"],trip_xml.attrib["destination"]] 
@@ -92,6 +92,7 @@ config.runs_per_agent = 1
 config.overwrite_existing_results_file = True
 config.randomise_random_seed = True
 config.save_model = True
+config.model_version="V2"
 
 num_GAT_layers=1 if config.routing_mode=="Q_routing_1_hop" else 2
 num_GAT_heads_per_layer=[3]*num_GAT_layers

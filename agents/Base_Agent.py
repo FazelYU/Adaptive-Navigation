@@ -539,6 +539,6 @@ class Base_Agent(object):
 
     def load_policies(self):
         for agent_id in self.agent_dic:
-            self.agent_dic[agent_id]["policy"].load_state_dict(torch.load("Models/{}/{}/agent_{}_policy.pt".format(self.config.network_name,self.config.exp_name,agent_id)))
-            self.agent_dic[agent_id]["intersec_id_embed_layer"].load_state_dict(torch.load("Models/{}/{}/agent_{}_id_embed_layer.pt".format(self.config.network_name,self.config.exp_name,agent_id)))
-        self.config.GAT.load_state_dict(torch.load("Models/{}/{}/GAT.pt".format(self.config.network_name,self.config.exp_name)))
+            self.agent_dic[agent_id]["policy"].load_state_dict(torch.load("Saved Models/{}/{}/{}/agent_{}_policy.pt".format(self.config.model_version,self.config.network_name,self.config.exp_name,agent_id),map_location='cuda:0'))
+            self.agent_dic[agent_id]["intersec_id_embed_layer"].load_state_dict(torch.load("Saved Models/{}/{}/{}/agent_{}_id_embed_layer.pt".format(self.config.model_version,self.config.network_name,self.config.exp_name,agent_id),map_location='cuda:0'))
+        self.config.GAT.load_state_dict(torch.load("Saved Models/{}/{}/{}/GAT.pt".format(self.config.model_version,self.config.network_name,self.config.exp_name),map_location='cuda:0'))

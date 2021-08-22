@@ -268,34 +268,6 @@ class AR_SUMO_Environment(gym.Env):
 		def is_action_valid(self,road,action):
 			pass
 
-		# def set_substitue_action(self,vc,current_road,current_lane,agent_id):
-		# 	self.vehicles[vc]["is_action_valid"]=False
-		# 	self.vehicles[vc]["substitute_action"]=self.get_subtitue_action(current_lane,agent_id)
-		# 	if Constants['Analysis_Mode']:
-		# 		try:
-		# 			assert(self.vehicles[vc]["substitute_action"])!= None
-		# 			assert(self.vehicles[vc]["substitute_action"]<self.utils.agent_dic[agent_id][1])
-		# 		except Exception as e:
-		# 			breakpoint()
-		# 	next_roads = self.utils.get_next_road_IDs(agent_id,self.vehicles[vc]["substitute_action"])
-		# 	self.cummulative_n_invalid_actions+=1
-		# 	if Constants['Analysis_Mode']:
-		# 		try:
-		# 			traci.vehicle.setRoute(vc, [current_road]+ next_roads)	
-		# 			self.utils.log("agnet {} generated substitute routing response {} for {}".format(agent_id,[current_road]+ next_roads,vc))
-		# 		except Exception as e:
-		# 			self.utils.log("error in setting the substitute route",type='err')
-		# 			breakpoint()
-
-		# def get_subtitue_action(self, lane_ID,agent_id):
-		# 	"""
-		# 	return a random number between 1 and len(self.utils.get_out_edges(self.g)t_intersec_id(vc_ID)])
-		# 	"""
-		# 	edge_ID=self.utils.get_lane_edge(lane_ID)
-		# 	connections=self.network.get_edge_connections(edge_ID)
-		# 	subs_edge=random.choice(connections)
-		# 	subs_act=self.utils.get_edge_index_among_node_out_edges(subs_edge,agent_id)
-		# 	return subs_act
 		
 
 
@@ -463,3 +435,33 @@ class AR_SUMO_Environment(gym.Env):
 
 		def get_routing_queries(self):
 			return self.routing_queries_states
+
+		
+		# def set_substitue_action(self,vc,current_road,current_lane,agent_id):
+		# 	self.vehicles[vc]["is_action_valid"]=False
+		# 	self.vehicles[vc]["substitute_action"]=self.get_subtitue_action(current_lane,agent_id)
+		# 	if Constants['Analysis_Mode']:
+		# 		try:
+		# 			assert(self.vehicles[vc]["substitute_action"])!= None
+		# 			assert(self.vehicles[vc]["substitute_action"]<self.utils.agent_dic[agent_id][1])
+		# 		except Exception as e:
+		# 			breakpoint()
+		# 	next_roads = self.utils.get_next_road_IDs(agent_id,self.vehicles[vc]["substitute_action"])
+		# 	self.cummulative_n_invalid_actions+=1
+		# 	if Constants['Analysis_Mode']:
+		# 		try:
+		# 			traci.vehicle.setRoute(vc, [current_road]+ next_roads)	
+		# 			self.utils.log("agnet {} generated substitute routing response {} for {}".format(agent_id,[current_road]+ next_roads,vc))
+		# 		except Exception as e:
+		# 			self.utils.log("error in setting the substitute route",type='err')
+		# 			breakpoint()
+
+		# def get_subtitue_action(self, lane_ID,agent_id):
+		# 	"""
+		# 	return a random number between 1 and len(self.utils.get_out_edges(self.g)t_intersec_id(vc_ID)])
+		# 	"""
+		# 	edge_ID=self.utils.get_lane_edge(lane_ID)
+		# 	connections=self.network.get_edge_connections(edge_ID)
+		# 	subs_edge=random.choice(connections)
+		# 	subs_act=self.utils.get_edge_index_among_node_out_edges(subs_edge,agent_id)
+		# 	return subs_act
