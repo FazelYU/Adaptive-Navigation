@@ -41,6 +41,11 @@ agent_list=list(create_agent_dic())
 
 rootTrips = ET.Element("trips")
 
+if Constants["NETWORK"]=="5x6":
+    biased_demand=['-gneE19','-gneE25']
+else:
+    biased_demand=['23973402#0','435629850']
+
 for index in range(0,2000):
     source_node=random.choice(agent_list)
     sink_node=random.choice(agent_list)
@@ -53,8 +58,15 @@ for index in range(0,2000):
     trip.attrib["origin"]=source_edge
     trip.attrib["destination"]=sink_edge
     rootTrips.append(trip)
+    if index%10==0:
+        source_edge=biased_demand[0]
+        sink_edge=biased_demand[1]
+        trip=ET.Element("trip")
+        trip.attrib["origin"]=source_edge
+        trip.attrib["destination"]=sink_edge
+        rootTrips.append(trip)
 
 treeTrips = ET.ElementTree(rootTrips)
 breakpoint()
-with open('./environments/sumo/toronto_trips.xml', 'w') as f:
+with open('./environments/sumo/{}_trips.xml'.format(Constants["NETWORK"]), 'w') as f:
     treeTrips.write(f, encoding='unicode')

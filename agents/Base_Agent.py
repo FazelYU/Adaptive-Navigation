@@ -259,7 +259,7 @@ class Base_Agent(object):
 
         if self.config.should_load_model:
             self.load_policies()
-            breakpoint()
+            # breakpoint()
         
         while self.env_episode_number < num_episodes:
             # if self.env_episode_number==num_episodes-1:
