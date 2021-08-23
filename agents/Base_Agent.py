@@ -47,7 +47,7 @@ class Base_Agent(object):
         self.relu=torch.nn.ReLU()
         self.intersection_id_size=self.get_intersection_id_size()
         self.intersection_id_embedding_size=self.intersection_id_size
-        self.network_embd_size=self.get_network_embed_size()
+        self.network_embed_size=self.get_network_embed_size()
 
     def get_environment_title(self):
         """Extracts name of environment from it"""
@@ -75,11 +75,11 @@ class Base_Agent(object):
         return None
 
     def get_policy_input_size(self):
-        return self.intersection_id_embedding_size+self.network_embd_size
+        return self.intersection_id_embedding_size+self.network_embed_size
     def get_intersection_id_size(self):
         return self.environment.utils.get_intersection_id_size()
     def get_network_embed_size(self):
-        return self.environment.utils.get_network_embed_size()
+        return self.config.network_embed_size
 
     def get_action_space_size(self,agent_id):
         return self.env_agent_dic[agent_id][1]
@@ -530,10 +530,10 @@ class Base_Agent(object):
     def save_policies(self):
         """Saves the policy"""
         for agent_id in self.agent_dic:
-            torch.save(self.agent_dic[agent_id]["policy"].state_dict(),"Models/{}/{}/agent_{}_policy.pt".format(self.config.network_name,self.config.exp_name,agent_id))
-            torch.save(self.agent_dic[agent_id]["intersec_id_embed_layer"].state_dict(),"Models/{}/{}/agent_{}_id_embed_layer.pt".format(self.config.network_name,self.config.exp_name,agent_id))
+            torch.save(self.agent_dic[agent_id]["policy"].state_dict(),"Models/{}/{}/{}/agent_{}_policy.pt".format(self.config.model_version,self.config.network_name,self.config.exp_name,agent_id))
+            torch.save(self.agent_dic[agent_id]["intersec_id_embed_layer"].state_dict(),"Models/{}/{}/{}/agent_{}_id_embed_layer.pt".format(self.config.model_version,self.config.network_name,self.config.exp_name,agent_id))
 
-        torch.save(self.config.GAT.state_dict(),"Models/{}/{}/GAT.pt".format(self.config.network_name,self.config.exp_name))
+        torch.save(self.config.GAT.state_dict(),"Models/{}/{}/{}/GAT.pt".format(self.config.model_version,self.config.network_name,self.config.exp_name))
         
         # torch.save(self.q_network_local.state_dict(), "Models/{}_local_network.pt".format(self.agent_name))
 

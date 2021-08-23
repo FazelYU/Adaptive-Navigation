@@ -35,7 +35,7 @@ class GAT(torch.nn.Module):
     # https://discuss.pytorch.org/t/forward-takes-2-positional-arguments-but-3-were-given-for-nn-sqeuential-with-linear-layers/65698
 
     def forward(self, data):
-        data=data.view(data.size()[0],-1,4)
+        data=data.view(data.size()[0],-1,self.config.network_state_size)
         return self.gat_net(data)
 
 

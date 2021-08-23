@@ -35,7 +35,7 @@ treeTrips=ET.parse('./environments/sumo/{}_trips.xml'.format(config.network_name
 rootTrips = treeTrips.getroot()
 
 config.use_GPU = True
-config.training_mode=False
+config.training_mode=True
 
 routing_modes=["Q_routing_2_hop","Q_routing_1_hop","Q_routing_0_hop","Q_routing","TTSPWRR","TTSP"]
 config.routing_mode=routing_modes[0]
@@ -97,12 +97,31 @@ config.runs_per_agent = 1
 config.overwrite_existing_results_file = True
 config.randomise_random_seed = True
 config.save_model = True
-config.model_version="V2"
+config.model_version="V3"
+
+config.network_state_size=4
+
+config.network_embed_size=0
+if config.routing_mode=="Q_routing_0_hop":
+    config.network_embed_size=4
+    DQN_linear_hidden_units=[8,6]
+
+
+if config.routing_mode=="Q_routing_1_hop":
+    config.network_embed_size=7
+    DQN_linear_hidden_units=[10,6]
+
+if config.routing_mode=="Q_routing_2_hop":
+    config.network_embed_size=10
+    DQN_linear_hidden_units=[12,9,6]
+
+
+
+
 
 num_GAT_layers=1 if config.routing_mode=="Q_routing_1_hop" else 2
 num_GAT_heads_per_layer=[3]*num_GAT_layers
-num_GAT_features_per_layer=[4]*(num_GAT_layers+1)
-
+num_GAT_features_per_layer=[4,7] if config.routing_mode=="Q_routing_1_hop" else [4,7,10]
 config.hyperparameters = {
     "GAT":{
     'lr': 0.01, 
@@ -119,7 +138,7 @@ config.hyperparameters = {
         "epsilon_decay_rate_denominator": config.num_episodes_to_run/100,
         "stop_exploration_episode":config.num_episodes_to_run-10,
         "random_episodes_to_run":0,
-        "linear_hidden_units": [8,6],
+        "linear_hidden_units": DQN_linear_hidden_units,
         "learning_rate": 0.01,
         "buffer_size": 10000,
         "batch_size": 64,

@@ -15,7 +15,7 @@ class DQN(Base_Agent):
         Base_Agent.__init__(self, config)
         self.agent_dic = self.create_agent_dic()
         self.exploration_strategy = Epsilon_Greedy_Exploration(config)
-        # self.environment.utils.vis_intersec_id_embedding(agent_id='gneJ1',transform_func=self.get_intersection_id_embedding)
+        # self.environment.utils.vis_intersec_id_embedding(agent_id='20953772',transform_func=self.get_intersection_id_embedding)
 
     def reset_game(self):
         super(DQN, self).reset_game()
@@ -31,7 +31,7 @@ class DQN(Base_Agent):
                 self.config.GAT.eval()
                 with torch.no_grad():
                     network_state_embeding=\
-                    self.config.GAT(self.config.network_state.view(1,-1,4)).view(-1,4)
+                    self.config.GAT(self.config.network_state.view(1,-1,self.config.network_state_size)).view(-1,self.config.network_embed_size)
                 self.config.GAT.train()
             else:
                 network_state_embeding=self.config.network_state
@@ -101,10 +101,10 @@ class DQN(Base_Agent):
             if self.config.does_need_network_state_embeding:
                 network_state_embeding_batch=self.config.GAT(network_states_batch)
             else:
-                network_state_embeding_batch=network_states_batch.view(batch_size,-1,4)
+                network_state_embeding_batch=network_states_batch.view(batch_size,-1,self.config.network_state_size)
                 # breakpoint()
         else:
-            size=network_states_batch.view(batch_size,-1,4).size()
+            size=network_states_batch.view(batch_size,-1,self.config.network_state_size).size()
             network_state_embeding_batch=torch.empty(size[0],size[1],0).to(self.device)
             # breakpoint()
 
@@ -153,9 +153,9 @@ class DQN(Base_Agent):
             if self.config.does_need_network_state_embeding:
                 network_state_embeding_batch=self.config.GAT(network_states_batch)
             else:
-                network_state_embeding_batch=network_states_batch.view(network_states_batch.size()[0],-1,4)
+                network_state_embeding_batch=network_states_batch.view(network_states_batch.size()[0],-1,self.config.network_state_size)
         else:
-            size=network_states_batch.view(network_states_batch.size()[0],-1,4).size()
+            size=network_states_batch.view(network_states_batch.size()[0],-1,self.config.network_state_size).size()
             network_state_embeding_batch=torch.empty(size[0],size[1],0).to(self.device)
 
         destination_ids=states_batch[:,0:self.intersection_id_size]

@@ -54,7 +54,7 @@ class Utils(object):
         self.Num_Flows=Num_Flows
 
         # self.pressure_matrix=[[0]*dim for i in range(dim)]
-        self.network_embd_dim=9
+        # self.network_embd_dim=9
         self.environment=environment
         # self.vc_count_dic=self.creat_vc_count_dic()
         self.Num_Flow_Types=3
@@ -69,7 +69,7 @@ class Utils(object):
         self.agent_list=list(self.agent_dic)
         
         self.agent_id_embedding_dic,self.agnet_id_embedding_size=self.create_agent_id_embedding_dic()
-        self.agent_label_dic=self.create_agent_labels_dic()
+        # self.agent_label_dic=self.create_agent_labels_dic()
         # self.tSNE_plot()
 
         self.agent_index_dic={self.agent_list[idx]:idx for idx in range(len(self.agent_list))}
@@ -283,17 +283,24 @@ class Utils(object):
         range_Y=max_Y-min_Y
         for agent_id in self.agent_dic:
             x,y=traci.junction.getPosition(agent_id)
+            # if x==min_X:
+            #     breakpoint()
+            # if y==min_Y:
+            #     breakpoint()
             if x==max_X:
+                # breakpoint()
                 x-=0.001
             if y==max_Y:
+                # breakpoint()
                 y-=0.001
 
-            i=math.floor((x-min_X)/range_X*3)
-            j=math.floor((y-min_Y)/range_Y*3)
-            label=str(j*3+i)
+            i=math.floor((x-min_X)/range_X*4)
+            j=math.floor((y-min_Y)/range_Y*4)
+            label=j*4+i
             agent_label_dic[agent_id]=label
 
         y=numpy.array([agent_label_dic[agent_id] for agent_id in self.agent_dic])
+        # breakpoint()
         return agent_label_dic
 
 
@@ -314,22 +321,27 @@ class Utils(object):
         plt.show()
         breakpoint()
 
-    def tSNE_plot(self,X,y):
-        df=pd.DataFrame(X)
-        df['label']=y
-        df.groupby('label', as_index=False).size().plot(kind='bar')
-        tsne = TSNE(n_components=2, verbose=1, perplexity=10, n_iter=400)
-        tsne_results = tsne.fit_transform(df)
-        df['tsne-2d-one'] = tsne_results[:,0]
-        df['tsne-2d-two'] = tsne_results[:,1]
-        plt.figure(figsize=(16,10))
-        sns.scatterplot(x="tsne-2d-one", y="tsne-2d-two",hue="label",size="label",data=df,legend="full")
-        # alpha=0.3
+    # def tSNE_plot(self,X,y):
+    #     df=pd.DataFrame(X)
+    #     df['label-class']=y
+    #     df['label']=[int(lbl) for lbl in y]
+    #     breakpoint()
+    #     df.groupby('label-class', as_index=False).size().plot(kind='bar',x='label')
+    #     breakpoint()
+    #     tsne = TSNE(n_components=2, verbose=1, perplexity=10, n_iter=400)
+    #     tsne_results = tsne.fit_transform(df)
+    #     df['tsne-2d-one'] = tsne_results[:,0]
+    #     df['tsne-2d-two'] = tsne_results[:,1]
+    #     plt.figure(figsize=(16,10))
+    #     sns.scatterplot(x="tsne-2d-one", y="tsne-2d-two",hue="label",size="label",data=df,legend="full")
+    #     # alpha=0.3
     
     def pca_plot(self,X,y):
         df=pd.DataFrame(X)
         df['label']=y
-        df.groupby('label', as_index=False).size().plot(kind='bar')
+        df.groupby('label', as_index=False).size().plot(kind='bar',x='label')
+        breakpoint()
+
         pca = PCA(n_components=2)
         pca_result = pca.fit_transform(df)
         df['pca-one'] = pca_result[:,0]
