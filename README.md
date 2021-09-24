@@ -1,3 +1,6 @@
+
+---NOTE: I am currently working on the documentation and the readiblity of the code. Sorry about it :) !
+
 Abstract:
 
 Traffic congestion in urban road networks is a condition characterised by slower speeds, longer trip times, increased air pollution, and driver frustration. Traffic congestion can be attributed to a volume of traffic that generates demand for space greater than the available street capacity. A number of other specific circumstances can also cause or aggravate congestion, including traffic incidents, road maintenance work and bad weather conditions.
