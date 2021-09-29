@@ -35,10 +35,10 @@ treeTrips=ET.parse('./environments/sumo/{}_trips.xml'.format(config.network_name
 rootTrips = treeTrips.getroot()
 
 config.use_GPU = True
-config.training_mode=True
+config.training_mode=False
 
 routing_modes=["Q_routing_2_hop","Q_routing_1_hop","Q_routing_0_hop","Q_routing","TTSPWRR","TTSP"]
-config.routing_mode=routing_modes[0]
+config.routing_mode=routing_modes[1]
 # if config.routing_mode in ["TTSPWRR","TTSP"]:
 #     config.training_mode=False
 config.does_need_network_state=config.routing_mode in ["Q_routing_2_hop","Q_routing_1_hop","Q_routing_0_hop"]
@@ -165,7 +165,7 @@ gat = GAT(
         add_skip_connection=config.hyperparameters["GAT"]['add_skip_connection'],
         bias=config.hyperparameters["GAT"]['bias'],
         dropout=config.hyperparameters["GAT"]['dropout'],
-        log_attention_weights=False  # no need to store attentions, used only in playground.py for visualizations
+        log_attention_weights=not config.training_mode
     ).to(config.device)
 
 gat.train()

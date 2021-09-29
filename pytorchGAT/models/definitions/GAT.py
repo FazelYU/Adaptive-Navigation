@@ -188,6 +188,7 @@ class GATLayer(torch.nn.Module):
         # Apply the scoring function (* represents element-wise (a.k.a. Hadamard) product)
         # shape = (N, NH, FOUT) * (1, NH, FOUT) -> (N, NH, 1) -> (N, NH) because sum squeezes the last dimension
         # Optimization note: torch.sum() is as performant as .sum() in my experiments
+        # breakpoint()
         scores_source = (nodes_features_proj * self.scoring_fn_source).sum(dim=-1)
         scores_target = (nodes_features_proj * self.scoring_fn_target).sum(dim=-1)
         # we reached thi point

@@ -13,10 +13,13 @@ import math
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import seaborn as sns
+
 from sklearn.decomposition import PCA
+import igraph as ig
+from scipy.stats import entropy
 
 
-NETWORK="toronto"
+NETWORK="5x6"
 Constants = {
     "NETWORK":NETWORK,
     "SUMO_PATH" : "/usr/share/sumo", #path to sumo in your system
@@ -69,7 +72,7 @@ class Utils(object):
         self.agent_list=list(self.agent_dic)
         
         self.agent_id_embedding_dic,self.agnet_id_embedding_size=self.create_agent_id_embedding_dic()
-        # self.agent_label_dic=self.create_agent_labels_dic()
+        self.agent_label_dic=self.create_agent_labels_dic()
         # self.tSNE_plot()
 
         self.agent_index_dic={self.agent_list[idx]:idx for idx in range(len(self.agent_list))}
@@ -149,7 +152,8 @@ class Utils(object):
                     for edge in self.agent_path_dic[agent_id][path_key]:
                         traci.edge.setMaxSpeed(edge,self.network.edge_speed_dic[edge]['speed']*self.config.congestion_speed_factor)
                         self.network.edge_speed_dic[edge]['is_congested']=True
-
+        self.visualize_gat_properties(self.agent_list)
+        # breakpoint()
 
     
 
@@ -339,8 +343,8 @@ class Utils(object):
     def pca_plot(self,X,y):
         df=pd.DataFrame(X)
         df['label']=y
-        df.groupby('label', as_index=False).size().plot(kind='bar',x='label')
-        breakpoint()
+        # df.groupby('label', as_index=False).size().plot(kind='bar',x='label')
+        # breakpoint()
 
         pca = PCA(n_components=2)
         pca_result = pca.fit_transform(df)
@@ -351,8 +355,9 @@ class Utils(object):
         # tsne_results = tsne.fit_transform(df)
         # df['tsne-2d-one'] = tsne_results[:,0]
         # df['tsne-2d-two'] = tsne_results[:,1]
-        plt.figure(figsize=(16,10))
-        sns.scatterplot(x="pca-one", y="pca-two",hue="label",size="label",style="label",data=df,legend="full")
+        plt.figure()
+        sns.set(font_scale=2)
+        sns.scatterplot(x="pca-one", y="pca-two",hue="label",style="label",data=df,legend="full",s=400)
   
 
     def create_agent_path_dic(self):
@@ -499,6 +504,232 @@ class Utils(object):
     def _where(self):
         cf=currentframe()
         return "@ file:"+getframeinfo(cf).filename+" line:"+cf.f_back.f_lineno
+
+
+    def visualize_gat_properties(self,nodes_of_interest,visualization_type="ATTENTION"):
+        gat=self.config.GAT
+        node_features=self.config.network_state
+        # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # checking whether you have a GPU, I hope so!
+
+        # config = {
+        #     'dataset_name': dataset_name,
+        #     'layer_type': LayerType.IMP3,
+        #     'should_visualize': False,  # don't visualize the dataset
+        #     'batch_size': 2,  # used only for PPI
+        #     'ppi_load_test_only': True  # used only for PPI (optimization, we're loading only test graphs)
+        # }
+
+        # Step 1: Prepare the data
+        gat.eval()  # some layers like nn.Dropout behave differently in train vs eval mode so this part is important
+        with torch.no_grad():
+            # Step 3: Run predictions and collect the high dimensional data
+            all_nodes_unnormalized_scores = gat(node_features.view(1,-1,self.config.network_state_size)).view(-1,self.config.network_embed_size) # shape = (N, num of classes)
+            all_nodes_unnormalized_scores = all_nodes_unnormalized_scores.cpu().numpy()
+        # We'll need the edge index in different for multiple visualization types
+        edge_index = self.config.edge_index
+
+        
+        # Step 4: Perform a specific visualization
+        if visualization_type == "ATTENTION":
+            # The number of nodes for which we want to visualize their attention over neighboring nodes
+            # (2x this actually as we add nodes with highest degree + random nodes)
+            # num_nodes_of_interest = 4  # 4 is an arbitrary number you can play with these numbers
+            head_to_visualize = 0  # plot attention from this multi-head attention's head
+            gat_layer_id = 0  # plot attention from this GAT layer
+
+            # Build up the complete graph
+            # node_features shape = (N, FIN), where N is the number of nodes and FIN number of inumpyut features
+            total_num_of_nodes = len(node_features)
+            complete_graph = ig.Graph()
+            complete_graph.add_vertices(total_num_of_nodes)  # igraph creates nodes with ids [0, total_num_of_nodes - 1]
+            edge_index_tuples = list(zip(edge_index[0, :], edge_index[1, :]))  # igraph requires this format
+            complete_graph.add_edges(edge_index_tuples)
+
+            # Pick the target nodes to plot (nodes with highest degree + random nodes)
+            # Note: there could be an overlap between random nodes and nodes with highest degree - but highly unlikely
+            # nodes_of_interest_idx = numpy.argpartition(complete_graph.degree(), -num_nodes_of_interest)[-num_nodes_of_interest:]
+            # random_node_ids = numpy.random.randint(low=0, high=total_num_of_nodes, size=num_nodes_of_interest)
+            # nodes_of_interest_idx = numpy.append(nodes_of_interest_idx, random_node_ids)
+            # numpy.random.shuffle(nodes_of_interest_idx)
+            # breakpoint()
+            nodes_of_interest_idx=[self.agent_index_dic[agent_id] for agent_id in nodes_of_interest]
+
+            target_node_ids = edge_index[1]
+            source_nodes = edge_index[0]
+            for target_node_id in nodes_of_interest_idx:
+                # Step 1: Find the neighboring nodes to the target node
+                # Note: self edges are included so the target node is it's own neighbor (Alexandro yo soy tu madre)
+                src_nodes_indices = torch.eq(target_node_ids, target_node_id)
+                source_node_ids = source_nodes[src_nodes_indices].cpu().numpy()
+                size_of_neighborhood = len(source_node_ids)
+
+                # Step 2: Fetch their labels
+                # labels = node_labels[source_node_ids].cpu().numpy()
+
+                # Step 3: Fetch the attention weights for edges (attention is logged during GAT's forward pass above)
+                # attention shape = (N, NH, 1) -> (N, NH) - we just squeeze the last dim it's superfluous
+                # breakpoint()
+                all_attention_weights = gat.gat_net[gat_layer_id].attention_weights.squeeze(dim=-1).squeeze(0)
+                attention_weights = all_attention_weights[src_nodes_indices, head_to_visualize].cpu().numpy()
+                # This part shows that for CORA what GAT learns is pretty much constant attention weights! Like in GCN!
+                # On the other hand PPI's attention pattern is much less uniform.
+                print(f'Max attention weight = {numpy.max(attention_weights)} and min = {numpy.min(attention_weights)}')
+                attention_weights /= numpy.max(attention_weights)  # rescale the biggest weight to 1 for nicer plotting
+
+                # Build up the neighborhood graph whose attention we want to visualize
+                # igraph constraint - it works with contiguous range of ids so we map e.g. node 497 to 0, 12 to 1, etc.
+                id_to_igraph_id = dict(zip(source_node_ids, range(len(source_node_ids))))
+                ig_graph = ig.Graph()
+                ig_graph.add_vertices(size_of_neighborhood)
+                ig_graph.add_edges([(id_to_igraph_id[neighbor], id_to_igraph_id[target_node_id]) for neighbor in source_node_ids])
+
+                # Prepare the visualization settings dictionary and plot
+                # breakpoint()
+                visual_style = {
+                    "vertex_size":30,
+                    "vertex_label_size":25,
+                    "edge_width": 5*attention_weights,  # make edges as thick as the corresponding attention weight
+                    "layout": ig_graph.layout_reingold_tilford_circular(),  # layout for tree-like graphs
+                    "margin":100,
+                    "vertex_label_dist":1,
+                    # "layout": ig_graph.layout(layout='layout_grid').scale(5),
+                    # "layout": ig_graph.layout_grid(),
+                    "vertex_label": [self.agent_list[idx] for idx in source_node_ids]
+                }
+                # This is the only part that's Cora specific as Cora has 7 labels
+                # if dataset_name.lower() == DatasetType.CORA.name.lower():
+                #     visual_style["vertex_color"] = [cora_label_to_color_map[label] for label in labels]
+                # else:
+                #     print('Add custom color scheme for your specific dataset. Using igraph default coloring.')
+
+
+                ig.plot(ig_graph, **visual_style)
+                # fig,ax=plt.subplots()
+                # # ig.plot(ig_graph,
+                # #     layout=ig_graph.layout_reingold_tilford_circular(),
+                # #     vertex_size=40,
+                # #     vertex_label=[self.agent_list[idx] for idx in source_node_ids],
+                # #     edge_width=5*attention_weights,
+                # #     # target=ax
+                # #     )
+                # plt.show()
+
+
+            # breakpoint()
+        # We want our local probability distributions (attention weights over the neighborhoods) to be
+        # non-uniform because that means that GAT is learning a useful pattern. Entropy histograms help us visualize
+        # how different those neighborhood distributions are from the uniform distribution (constant attention).
+        # If the GAT is learning const attention we could well be using GCN or some even simpler models.
+        elif visualization_type == "ENTROPY":
+            num_heads_per_layer = [layer.num_of_heads for layer in gat.gat_net]
+            num_layers = len(num_heads_per_layer)
+            num_of_nodes = len(node_features)
+
+            target_node_ids = edge_index[1].cpu().numpy()
+
+            # For every GAT layer and for every GAT attention head plot the entropy histogram
+            for layer_id in range(num_layers):
+                # Fetch the attention weights for edges (attention is logged during GAT's forward pass above)
+                # attention shape = (N, NH, 1) -> (N, NH) - we just squeeze the last dim it's superfluous
+                all_attention_weights = gat.gat_net[layer_id].attention_weights.squeeze(dim=-1).squeeze(0).cpu().numpy()
+
+                # tmp fix for PPI there are some numerical problems and so most of attention coefficients are 0
+                # and thus we can't plot entropy histograms
+                # if dataset_name == DatasetType.PPI.name and layer_id > 0:
+                #     print(f'Entropy histograms for {dataset_name} are available only for the first layer.')
+                #     break
+
+                for head_id in range(num_heads_per_layer[layer_id]):
+                    uniform_dist_entropy_list = []  # save the ideal uniform histogram as the reference
+                    neighborhood_entropy_list = []
+
+                    # This can also be done much more efficiently via scatter_add_ (no for loops)
+                    # pseudo: out.scatter_add_(node_dim, -all_attention_weights * log(all_attention_weights), target_index)
+                    for target_node_id in range(num_of_nodes):  # find every the neighborhood for every node in the graph
+                        # These attention weights sum up to 1 by GAT design so we can treat it as a probability distribution
+                        neigborhood_attention = all_attention_weights[target_node_ids == target_node_id].flatten()
+                        # Reference uniform distribution of the same length
+                        ideal_uniform_attention = numpy.ones(len(neigborhood_attention))/len(neigborhood_attention)
+
+                        # Calculate the entropy, check out this video if you're not familiar with the concept:
+                        # https://www.youtube.com/watch?v=ErfnhcEV1O8 (Aurélien Géron)
+                        neighborhood_entropy_list.append(entropy(neigborhood_attention, base=2))
+                        uniform_dist_entropy_list.append(entropy(ideal_uniform_attention, base=2))
+
+                    title = f'{self.config.network_name} entropy histogram layer={layer_id}, attention head={head_id}'
+                    draw_entropy_histogram(uniform_dist_entropy_list, title, color='orange', uniform_distribution=True)
+                    draw_entropy_histogram(neighborhood_entropy_list, title, color='dodgerblue')
+
+                    fig = plt.gcf()  # get current figure
+                    plt.show()
+                    # fig.savefig(os.path.join(DATA_DIR_PATH, f'layer_{layer_id}_head_{head_id}.jpg'))
+                    plt.close()
+        else:
+            raise Exception(f'Visualization type {visualization_type} not supported.')
+
+
+
+def draw_entropy_histogram(entropy_array, title, color='blue', uniform_distribution=False, num_bins=30):
+    max_value = numpy.max(entropy_array)
+    bar_width = (max_value / num_bins) * (1.0 if uniform_distribution else 0.75)
+    histogram_values, histogram_bins = numpy.histogram(entropy_array, bins=num_bins, range=(0.0, max_value))
+
+    plt.bar(histogram_bins[:num_bins], histogram_values[:num_bins], width=bar_width, color=color)
+    plt.xlabel(f'entropy bins')
+    plt.ylabel(f'# of node neighborhoods')
+    plt.title(title)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # deprecated-------------------------------------------------------------------------------------------------------------------
     def update_node_features(self):
         self.update_pressure_matrix()
