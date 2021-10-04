@@ -19,58 +19,55 @@ import igraph as ig
 from scipy.stats import entropy
 
 
-NETWORK="5x6"
-Constants = {
-    "NETWORK":NETWORK,
-    "SUMO_PATH" : "/usr/share/sumo", #path to sumo in your system
-    "SUMO_GUI_PATH" : "/usr/share/sumo/bin/sumo-gui", #path to sumo-gui bin in your system
-    "SUMO_SHELL_PATH":"/usr/share/sumo/bin/sumo",
-    "SUMO_CONFIG" : "./environments/sumo/networks/{}/network.sumocfg".format(NETWORK), #path to your sumo config file
-    "ROOT" : "./",
-    "Network_XML" : "./environments/sumo/networks/{}/{}.net.xml".format(NETWORK,NETWORK),
-    'Additional_XML':"./environments/sumo/networks/{}/{}_additional.add.xml".format(NETWORK,NETWORK),
-    'Analysis_Mode': True,
-    'LOG' : False,
-    'WARNINGS': False,
-    'WHERE':False,
-    'Simulation_Delay' : '0',
+# NETWORK="5x6"
+# self.config.Constants = {
+#     "NETWORK":NETWORK,
+#     "SUMO_PATH" : "/usr/share/sumo", #path to sumo in your system
+#     "SUMO_GUI_PATH" : "/usr/share/sumo/bin/sumo-gui", #path to sumo-gui bin in your system
+#     "SUMO_SHELL_PATH":"/usr/share/sumo/bin/sumo",
+#     "SUMO_CONFIG" : "./environments/sumo/networks/{}/network.sumocfg".format(NETWORK), #path to your sumo config file
+#     "ROOT" : "./",
+#     "Network_XML" : "./environments/sumo/networks/{}/{}.net.xml".format(NETWORK,NETWORK),
+#     'Additional_XML':"./environments/sumo/networks/{}/{}_additional.add.xml".format(NETWORK,NETWORK),
+#     'Analysis_Mode': True,
+#     'LOG' : False,
+#     'WARNINGS': False,
+#     'WHERE':False,
+#     'Vis_GAT':False,
+#     'Simulation_Delay' : '0',
 
-    'il_lane_ID_subscribtion_code': 0x51,
-    'il_last_step_vc_IDs_subscribtion_code': 0x12,
-    'il_last_step_vc_count_subscribtion_code': 0x10,
+#     'il_lane_ID_subscribtion_code': 0x51,
+#     'il_last_step_vc_IDs_subscribtion_code': 0x12,
+#     'il_last_step_vc_count_subscribtion_code': 0x10,
 
-    'vc_road_ID_subscribtion_code': 0x50,
-    'vc_lane_ID_subscribtion_code':0x51,
+#     'vc_road_ID_subscribtion_code': 0x50,
+#     'vc_lane_ID_subscribtion_code':0x51,
 
 
-    }
+#     }
 
 class Utils(object):
     """docstring for Utils"""
-    def __init__(self,config,environment,network,Num_Flows,GAT,embed_network):
+    def __init__(self,config):
         super(Utils, self).__init__()
         self.config=config
-        torch.autograd.set_detect_anomaly(Constants["Analysis_Mode"])
+        torch.autograd.set_detect_anomaly(self.config.Constants["Analysis_Mode"])
         self.seeded_random_generator=numpy.random.RandomState(config.envm_seed)
         # breakpoint()
-        self.network=network
-        self.Num_Flows=Num_Flows
+        self.network=config.network
 
         # self.pressure_matrix=[[0]*dim for i in range(dim)]
         # self.network_embd_dim=9
-        self.environment=environment
+        # self.environment=environment
         # self.vc_count_dic=self.creat_vc_count_dic()
         self.Num_Flow_Types=3
         self.slow_vc_speed=7
         self.fast_vc_speed=2*self.slow_vc_speed
 
-        self.gat=GAT
-        self.embed_network=embed_network
-        
 
         self.agent_dic=self.create_agent_dic()#{node:[len(in edges), len(out edges)]}
         self.agent_list=list(self.agent_dic)
-        
+        self.all_pairs_shortest_path_matrix=self.create_all_pairs_shortest_path_matrix(self.network.all_pairs_shortest_path)
         self.agent_id_embedding_dic,self.agnet_id_embedding_size=self.create_agent_id_embedding_dic()
         self.agent_label_dic=self.create_agent_labels_dic()
         # self.tSNE_plot()
@@ -90,20 +87,21 @@ class Utils(object):
 
         for il in self.induction_loops:
             traci.inductionloop.subscribe(il,[\
-                                            Constants['il_last_step_vc_count_subscribtion_code'],\
-                                            Constants['il_last_step_vc_IDs_subscribtion_code']
+                                            self.config.Constants['il_last_step_vc_count_subscribtion_code'],\
+                                            self.config.Constants['il_last_step_vc_IDs_subscribtion_code']
                                             ])
 
 
     def get_state(self,source_edge,source_node,sink_node):
         action_mask,action_mask_index=self.get_edge_action_mask(source_edge,source_node)
         dest_embed=self.agent_id_embedding_dic[sink_node]
+        destination_aware_network_state=self.get_destination_aware_network_state(sink_node).detach().clone()
         # if dest_embed.device.type!='cuda':
         #     breakpoint()
         # source_node_state=self.get_agent_state(source_node)
         # embeding=torch.cat((dest_embed,source_node_state),0)
 
-        # if Constants['Analysis_Mode']:
+        # if self.config.Constants['Analysis_Mode']:
         #     try:
         #         assert(len(embeding)==self.get_state_diminsion(source_node))
         #     except Exception as e:
@@ -113,19 +111,19 @@ class Utils(object):
                 "agent_idx": self.agent_index_dic[source_node],
                 "action_mask": action_mask,
                 "action_mask_index":action_mask_index,
-                "embeding": torch.cat((dest_embed,self.config.network_state.detach().clone().view(-1)),-1)
+                "embeding": torch.cat((dest_embed,destination_aware_network_state.view(-1)),-1)
                 # "network_state":self.config.network_state.detach().clone()
                 }
 
     def get_state_diminsion(self,node_id): 
         if  self.config.does_need_network_state:
-            return self.agnet_id_embedding_size+self.max_len_out_edges
+            return self.agnet_id_embedding_size+1
 
         return self.agnet_id_embedding_size
 
-    def get_network_embed_size(self):
+    def get_network_state_size(self):
         if  self.config.does_need_network_state:
-            return self.max_len_out_edges
+            return self.max_len_out_edges+1
         return 0
 
     def get_intersection_id_size(self):
@@ -142,7 +140,11 @@ class Utils(object):
                 path_key=out_edeges_list[edge_number]
                 if self.seeded_random_generator.random()>self.config.congestion_epsilon:
                     # no congestion for the edge
-                    self.config.network_state[self.agent_index_dic[agent_id]][edge_number]=0
+                    # try:
+                    #     self.config.network_state[self.agent_index_dic[agent_id]][edge_number]=0
+                    # except Exception as e:
+                        # breakpoint()
+                    self.config.network_state[self.agent_index_dic[agent_id]][edge_number]=0    
                     for edge in self.agent_path_dic[agent_id][path_key]:
                         traci.edge.setMaxSpeed(edge,self.network.edge_speed_dic[edge]['speed'])
                         self.network.edge_speed_dic[edge]['is_congested']=False
@@ -152,15 +154,30 @@ class Utils(object):
                     for edge in self.agent_path_dic[agent_id][path_key]:
                         traci.edge.setMaxSpeed(edge,self.network.edge_speed_dic[edge]['speed']*self.config.congestion_speed_factor)
                         self.network.edge_speed_dic[edge]['is_congested']=True
-        self.visualize_gat_properties(self.agent_list)
+        if self.config.Constants['Vis_GAT']:
+            self.visualize_gat_properties(self.agent_list)
         # breakpoint()
-
-    
-
 
     def state2torch(self,state):
         state=torch.tensor(state, device=self.config.device, dtype=torch.float)
         return state.unsqueeze(0)
+# ---------------------------------------------------------------------------
+    def create_all_pairs_shortest_path_matrix(self,all_pairs_shortest_path_dic):
+        return torch.tensor(
+            [
+            [all_pairs_shortest_path_dic[agent_id_out][agent_id_in] for agent_id_in in self.agent_list] 
+            for agent_id_out in self.agent_list
+            ],
+            device=self.config.device)
+    
+    def get_shortet_path_distances(self,destination_agent_id):
+        return self.all_pairs_shortest_path_matrix[self.agent_index_dic[destination_agent_id]]
+
+    def get_destination_aware_network_state(self,destination_agent_id):
+        network_state=self.config.network_state
+        shortest_path_distances=self.get_shortet_path_distances(destination_agent_id)
+        destination_aware_network_state=torch.cat((network_state,shortest_path_distances.unsqueeze(1)),1)
+        return destination_aware_network_state
 # ---------------------------------------------------------------------------  
     def generate_uniform_demand(self,sim_time):
         if self.config.training_mode:
@@ -210,8 +227,8 @@ class Utils(object):
     
     def subscribe_vehicle(self,vc):
         traci.vehicle.subscribe(vc,[\
-            Constants['vc_lane_ID_subscribtion_code'],
-            Constants['vc_road_ID_subscribtion_code']
+            self.config.Constants['vc_lane_ID_subscribtion_code'],
+            self.config.Constants['vc_road_ID_subscribtion_code']
             ])
     def create_sample_uniform_trip(self):
         source_node=random.choice(self.agent_list)
@@ -256,7 +273,7 @@ class Utils(object):
         for agent_id in self.agent_dic:
             position=traci.junction.getPosition(agent_id)
             unique_Z_ID=pm.interleave(int(position[0]),int(position[1]))
-            if Constants['Analysis_Mode']:
+            if self.config.Constants['Analysis_Mode']:
                 try:
                     assert(unique_Z_ID not in z_order_dic)
                 except Exception as e:
@@ -365,7 +382,7 @@ class Utils(object):
         for agent in self.agent_dic:
             agent_paths[agent]={}
             for out_edge in self.network.get_out_edges(agent):
-                if Constants['Analysis_Mode']:
+                if self.config.Constants['Analysis_Mode']:
                     assert(out_edge not in agent_paths)
                 agent_paths[agent][out_edge]=self.create_edge_path(out_edge)
         return agent_paths
@@ -387,7 +404,7 @@ class Utils(object):
         edge_action_mask_dic={}
         for agent_id in self.agent_dic:
             for in_edge_id in self.network.get_in_edges(agent_id):
-                if Constants['Analysis_Mode']:
+                if self.config.Constants['Analysis_Mode']:
                     assert(in_edge_id not in edge_action_mask_dic)
                 edge_action_mask_dic[in_edge_id]=self.create_edge_action_mask(in_edge_id)
 
@@ -432,7 +449,7 @@ class Utils(object):
 
 
     def get_edge_action_mask(self,edge_id,node_id):
-        if Constants['Analysis_Mode']:
+        if self.config.Constants['Analysis_Mode']:
             assert(node_id==self.network.get_edge_head_node(edge_id))
         return self.edge_action_mask_dic[edge_id]
 
@@ -454,7 +471,7 @@ class Utils(object):
 
         for src_node, neighboring_nodes in self.agent_adjacency_list_dict.items():
 
-            if Constants['Analysis_Mode']:
+            if self.config.Constants['Analysis_Mode']:
                 try:
                     assert(src_node==list(self.agent_dic.keys())[self.agent_index_dic[src_node]])
                 except Exception as e:
@@ -488,16 +505,16 @@ class Utils(object):
 #helper-------------------------------------------------
 
     def log(self, log_str, type='info'):
-        if Constants['LOG']:
+        if self.config.Constants['LOG']:
             if type == 'info':
                 print('-Info- ' + log_str)
             if type=='err':
-                if Constants['WHERE']:
+                if self.config.Constants['WHERE']:
                     print(self._where())
                 print('-Error- ' + log_str)
 
-        if type== 'warn' and Constants['WARNINGS']:
-            if Constants['WHERE']:
+        if type== 'warn' and self.config.Constants['WARNINGS']:
+            if self.config.Constants['WHERE']:
                 print(self._where())
             print('-Warning- ' + log_str)   
 
@@ -742,22 +759,22 @@ def draw_entropy_histogram(entropy_array, title, color='blue', uniform_distribut
                     print(e)
                     breakpoint()
 
-    def creat_vc_count_dic(self):
-        lane_vc_count_dic=self.environment.eng.get_lane_vehicle_count()
-        vc_count_dic={}
-        for lane in lane_vc_count_dic:
-            road= self.road2int(self.lane2road(lane))
-            if not road in vc_count_dic: vc_count_dic[road]=0
-        return vc_count_dic
+    # def creat_vc_count_dic(self):
+    #     lane_vc_count_dic=self.environment.eng.get_lane_vehicle_count()
+    #     vc_count_dic={}
+    #     for lane in lane_vc_count_dic:
+    #         road= self.road2int(self.lane2road(lane))
+    #         if not road in vc_count_dic: vc_count_dic[road]=0
+    #     return vc_count_dic
 
-    def update_vc_count_dic(self):
-        lane_vc_count_dic=self.environment.eng.get_lane_vehicle_count()
-        self.refresh_vc_count_dic()
-        for lane in lane_vc_count_dic:
-            road= self.road2int(self.lane2road(lane))
-            # if road==10:
-            #   breakpoint()
-            self.vc_count_dic[road]+=lane_vc_count_dic[lane]
+    # def update_vc_count_dic(self):
+    #     lane_vc_count_dic=self.environment.eng.get_lane_vehicle_count()
+    #     self.refresh_vc_count_dic()
+    #     for lane in lane_vc_count_dic:
+    #         road= self.road2int(self.lane2road(lane))
+    #         # if road==10:
+    #         #   breakpoint()
+    #         self.vc_count_dic[road]+=lane_vc_count_dic[lane]
 
 
     def refresh_vc_count_dic(self):

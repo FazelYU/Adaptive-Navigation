@@ -53,7 +53,7 @@ class RoadNetworkModel():
         self.edge_speed_dic=self.creat_edge_speed_dic()
         self.node_dic=self.create_node_dic()      
         self.all_pairs_shortest_path= dict(nx.all_pairs_dijkstra_path_length(self.graph))
-
+        # breakpoint()
 
         for edge in self.edge_ID_dic:
             try:

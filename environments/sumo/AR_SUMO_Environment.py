@@ -1,4 +1,4 @@
-from environments.sumo.Utils import Constants
+# from environments.sumo.Utils import self.config.Constants
 from environments.sumo.Utils import Utils
 from environments.sumo.model.network import RoadNetworkModel
 import os, sys
@@ -16,10 +16,12 @@ class AR_SUMO_Environment(gym.Env):
 			#create the road network
 			
 			self.config=config
-			self.init_traci()		
-			self.network = RoadNetworkModel(Constants["ROOT"], Constants["Network_XML"])
+
+			self.network = config.network
+			# self.network = RoadNetworkModel(self.config.Constants["ROOT"], self.config.Constants["Network_XML"])
 			# breakpoint()
-			self.utils=Utils(config=config,environment=self,network=self.network,Num_Flows=1,GAT=config.GAT,embed_network=False)
+			self.utils=config.utils
+			# self.utils=Utils(config=config,environment=self,network=self.network)
 			# breakpoint()
 			# traci.edge.adaptTraveltime('gneE6',4*traci.edge.getTraveltime('gneE6'))
 
@@ -30,7 +32,7 @@ class AR_SUMO_Environment(gym.Env):
 			self.routing_queries=[]
 			
 			# -----------------------------------------------------
-			self.gat=config.GAT
+			# self.gat=config.GAT
 			self.routing_queries_states=[]
 			self.states=[]
 			self.acts=[]
@@ -73,7 +75,7 @@ class AR_SUMO_Environment(gym.Env):
 				self.config.num_biased_vc_dispatched=0
 				self.config.num_uniform_vc_dispatched=0
 			# if episode==config.num_episodes_to_run-1:
-			# 	Constants["LOG"]=True
+			# 	self.config.Constants["LOG"]=True
 			# 	breakpoint()
 			# self.vehicles={}
 			# self.refresh_routing_queries()
@@ -110,7 +112,7 @@ class AR_SUMO_Environment(gym.Env):
 
 			try:
 				TelNum=traci.simulation.getStartingTeleportNumber()
-				if Constants['Analysis_Mode']: assert(TelNum==0)
+				if self.config.Constants['Analysis_Mode']: assert(TelNum==0)
 			except Exception as e:
 				self.utils.log("{} Telepoting Vehicle Found!".format(TelNum))
 				# breakpoint()
@@ -129,7 +131,7 @@ class AR_SUMO_Environment(gym.Env):
 			routing_queries,exiting_queries=self.get_queries()
 
 			for (vc,road) in routing_queries:
-				if Constants['Analysis_Mode']:
+				if self.config.Constants['Analysis_Mode']:
 					try:					
 						assert(road in self.network.edge_ID_dic)
 					except:
@@ -137,7 +139,7 @@ class AR_SUMO_Environment(gym.Env):
 						breakpoint()
 
 				next_agent_id=self.network.get_edge_head_node(road)	
-				if Constants['Analysis_Mode']:
+				if self.config.Constants['Analysis_Mode']:
 					try:
 						assert(next_agent_id in self.utils.agent_dic)
 					except:
@@ -149,7 +151,7 @@ class AR_SUMO_Environment(gym.Env):
 				next_state=self.utils.get_state(road,next_agent_id,self.vehicles[vc]["destination"])
 				
 				if not self.vehicles[vc]["is_new"]:
-					if Constants['Analysis_Mode']:
+					if self.config.Constants['Analysis_Mode']:
 						try:
 							assert(self.vehicles[vc]["action"]!=None)
 							assert(self.vehicles[vc]["road"]!=road)
@@ -166,7 +168,7 @@ class AR_SUMO_Environment(gym.Env):
 
 
 					if self.vehicles[vc]["is_action_valid"]:
-						if Constants['Analysis_Mode']:
+						if self.config.Constants['Analysis_Mode']:
 							try:
 								assert(self.vehicles[vc]["action"]<self.utils.agent_dic[self.vehicles[vc]["state"]['agent_id']][1])
 								# breakpoint()
@@ -176,7 +178,7 @@ class AR_SUMO_Environment(gym.Env):
 						self.save_expirence(self.vehicles[vc]["state"],self.vehicles[vc]["action"],reward,next_state,done=False)
 					else:
 						breakpoint()
-						if Constants['Analysis_Mode']:
+						if self.config.Constants['Analysis_Mode']:
 							try:
 								assert(self.vehicles[vc]["substitute_action"]<self.utils.agent_dic[self.vehicles[vc]["state"]['agent_id']][1])
 							except Exception as e:
@@ -185,7 +187,7 @@ class AR_SUMO_Environment(gym.Env):
 						self.save_expirence(self.vehicles[vc]["state"],self.vehicles[vc]["action"],100*reward,next_state,done=False)
 						self.save_expirence(self.vehicles[vc]["state"],self.vehicles[vc]["substitute_action"],reward,next_state,done=False)
 
-				if Constants['Analysis_Mode']:
+				if self.config.Constants['Analysis_Mode']:
 					try:
 						assert(next_state!=None)
 					except Exception as e:
@@ -200,7 +202,7 @@ class AR_SUMO_Environment(gym.Env):
 					reward=self.get_reward(self.vehicles[vc]["time"],sim_time)
 
 					if self.vehicles[vc]["is_action_valid"]:
-						if Constants['Analysis_Mode']:
+						if self.config.Constants['Analysis_Mode']:
 							try:
 								assert(self.vehicles[vc]["action"]<self.utils.agent_dic[self.vehicles[vc]["state"]['agent_id']][1])
 							except Exception as e:
@@ -208,7 +210,7 @@ class AR_SUMO_Environment(gym.Env):
 		
 						self.save_expirence(self.vehicles[vc]["state"],self.vehicles[vc]["action"],reward,next_state=None,done=True)
 					else:
-						if Constants['Analysis_Mode']:
+						if self.config.Constants['Analysis_Mode']:
 							try:
 								assert(self.vehicles[vc]["substitute_action"]<self.utils.agent_dic[self.vehicles[vc]["state"]['agent_id']][1])
 							except Exception as e:
@@ -231,7 +233,7 @@ class AR_SUMO_Environment(gym.Env):
 				self.vehicles[vc]["is_action_valid"]=True
 				agent_id=self.vehicles[vc]["agent_id"]
 
-				if Constants['Analysis_Mode']:
+				if self.config.Constants['Analysis_Mode']:
 					try:
 						ac=self.vehicles[vc]["action"]
 						assert(ac!=None)
@@ -383,11 +385,11 @@ class AR_SUMO_Environment(gym.Env):
 		def close_traci(self):
 			traci.close()
 
-		def init_traci(self):
-			sys.path.append(os.path.join(Constants['SUMO_PATH'], os.sep, 'tools'))
-			sumoBinary = Constants["SUMO_GUI_PATH"]
-			self.sumoCmd = [sumoBinary, '-S', '-d', Constants['Simulation_Delay'], "-c", Constants["SUMO_CONFIG"],"--no-warnings","true"]
-			traci.start(self.sumoCmd)
+		# def init_traci(self):
+		# 	sys.path.append(os.path.join(self.config.Constants['SUMO_PATH'], os.sep, 'tools'))
+		# 	sumoBinary = self.config.Constants["SUMO_GUI_PATH"]
+		# 	self.sumoCmd = [sumoBinary, '-S', '-d', self.config.Constants['Simulation_Delay'], "-c", self.config.Constants["SUMO_CONFIG"],"--no-warnings","true"]
+		# 	traci.start(self.sumoCmd)
 		
 
 
@@ -397,7 +399,7 @@ class AR_SUMO_Environment(gym.Env):
 			self.utils.log("a vehicle can be detected twice in a single timestep!",type='warn')
 			AllSubsResult=traci.inductionloop.getAllSubscriptionResults()
 			for il in AllSubsResult:
-				tvcs=AllSubsResult[il][Constants['il_last_step_vc_IDs_subscribtion_code']]
+				tvcs=AllSubsResult[il][self.config.Constants['il_last_step_vc_IDs_subscribtion_code']]
 				if len(tvcs)>0:
 					split=il.split('_')
 					il_edge=split[1]
@@ -405,12 +407,12 @@ class AR_SUMO_Environment(gym.Env):
 					il_edge_head=self.network.get_edge_head_node(il_edge)
 					# il_lane=
 					for vc in tvcs:
-						# lane_ID=il[Constants['il_lane_ID_subscribtion_code']]
+						# lane_ID=il[self.config.Constants['il_lane_ID_subscribtion_code']]
 						# breakpoint()
 						if self.has_exited(vc) or self.has_transited(vc,il_edge):
 							continue
 						
-						if Constants['Analysis_Mode']:
+						if self.config.Constants['Analysis_Mode']:
 							try:
 								assert(self.vehicles[vc]["road"]!=il_edge)
 							except Exception as e:
@@ -441,7 +443,7 @@ class AR_SUMO_Environment(gym.Env):
 		# def set_substitue_action(self,vc,current_road,current_lane,agent_id):
 		# 	self.vehicles[vc]["is_action_valid"]=False
 		# 	self.vehicles[vc]["substitute_action"]=self.get_subtitue_action(current_lane,agent_id)
-		# 	if Constants['Analysis_Mode']:
+		# 	if self.config.Constants['Analysis_Mode']:
 		# 		try:
 		# 			assert(self.vehicles[vc]["substitute_action"])!= None
 		# 			assert(self.vehicles[vc]["substitute_action"]<self.utils.agent_dic[agent_id][1])
@@ -449,7 +451,7 @@ class AR_SUMO_Environment(gym.Env):
 		# 			breakpoint()
 		# 	next_roads = self.utils.get_next_road_IDs(agent_id,self.vehicles[vc]["substitute_action"])
 		# 	self.cummulative_n_invalid_actions+=1
-		# 	if Constants['Analysis_Mode']:
+		# 	if self.config.Constants['Analysis_Mode']:
 		# 		try:
 		# 			traci.vehicle.setRoute(vc, [current_road]+ next_roads)	
 		# 			self.utils.log("agnet {} generated substitute routing response {} for {}".format(agent_id,[current_road]+ next_roads,vc))

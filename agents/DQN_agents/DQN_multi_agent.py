@@ -27,22 +27,24 @@ class DQN(Base_Agent):
         if len(states)==0:
             return []
         
+        states_batch=torch.vstack([state['embeding'] for state in states])
+        network_states_batch=states_batch[:,self.intersection_id_size:]
         if self.config.does_need_network_state:
             if self.config.does_need_network_state_embeding:
                 self.config.GAT.eval()
+                # breakpoint()
                 with torch.no_grad():
-                    network_state_embeding=\
-                    self.config.GAT(self.config.network_state.view(1,-1,self.config.network_state_size)).view(-1,self.config.network_embed_size)
+                    network_state_embedings=\
+                    self.config.GAT(network_states_batch).view(states_batch.shape[0],-1,self.config.network_embed_size)
                 self.config.GAT.train()
             else:
-                network_state_embeding=self.config.network_state
+                network_state_embedings=network_states_batch.view(states_batch.shape[0],-1,self.config.network_state_size)
         else:
             size=self.config.network_state.size()
-            network_state_embeding=torch.empty(size[0],0).to(self.device)
-
+            network_state_embedings=torch.empty(size[0],0).to(self.device)
+        # breakpoint()
         actions=[]
-
-        for state in states:
+        for state,network_state_embeding in zip(states,network_state_embedings):
             agent_id=self.get_agent_id(state)
             intersection_state_embeding=network_state_embeding[state['agent_idx']]
             destination_id=state['embeding'][0:self.intersection_id_size]

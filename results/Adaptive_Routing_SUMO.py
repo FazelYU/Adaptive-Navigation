@@ -4,7 +4,7 @@ from os.path import dirname, abspath
 sys.path.append(dirname(dirname(abspath(__file__))))
 
 from agents.DQN_agents.DQN_multi_agent import DQN
-from environments.sumo.AR_SUMO_Environment import AR_SUMO_Environment as envm
+from environments.sumo.AR_SUMO_Environment import AR_SUMO_Environment
 from agents.Trainer_multi_agent import Trainer
 from utilities.data_structures.Config import Config
 
@@ -26,19 +26,58 @@ import torch.nn.functional as F
 import torchvision.transforms as T
 from pytorchGAT.models.definitions.GAT import GAT
 import xml.etree.ElementTree as ET
-from environments.sumo.Utils import Constants
+from environments.sumo.Utils import Utils
+from environments.sumo.model.network import RoadNetworkModel
+import traci
+
+
+def init_traci():
+    sys.path.append(os.path.join(config.Constants['SUMO_PATH'], os.sep, 'tools'))
+    sumoBinary = config.Constants["SUMO_GUI_PATH"]
+    sumoCmd = [sumoBinary, '-S', '-d', config.Constants['Simulation_Delay'], "-c", config.Constants["SUMO_CONFIG"],"--no-warnings","true"]
+    traci.start(sumoCmd)
+
+
 
 config = Config()
+
+NETWORK="toronto"
+Constants = {
+    "NETWORK":NETWORK,
+    "SUMO_PATH" : "/usr/share/sumo", #path to sumo in your system
+    "SUMO_GUI_PATH" : "/usr/share/sumo/bin/sumo-gui", #path to sumo-gui bin in your system
+    "SUMO_SHELL_PATH":"/usr/share/sumo/bin/sumo",
+    "SUMO_CONFIG" : "./environments/sumo/networks/{}/network.sumocfg".format(NETWORK), #path to your sumo config file
+    "ROOT" : "./",
+    "Network_XML" : "./environments/sumo/networks/{}/{}.net.xml".format(NETWORK,NETWORK),
+    'Additional_XML':"./environments/sumo/networks/{}/{}_additional.add.xml".format(NETWORK,NETWORK),
+    'Analysis_Mode': True,
+    'LOG' : False,
+    'WARNINGS': False,
+    'WHERE':False,
+    'Vis_GAT':False,
+    'Simulation_Delay' : '0',
+
+    'il_lane_ID_subscribtion_code': 0x51,
+    'il_last_step_vc_IDs_subscribtion_code': 0x12,
+    'il_last_step_vc_count_subscribtion_code': 0x10,
+
+    'vc_road_ID_subscribtion_code': 0x50,
+    'vc_lane_ID_subscribtion_code':0x51,
+
+
+    }
+config.Constants=Constants    
 config.network_name=Constants["NETWORK"]
 
 treeTrips=ET.parse('./environments/sumo/{}_trips.xml'.format(config.network_name))
 rootTrips = treeTrips.getroot()
 
 config.use_GPU = True
-config.training_mode=False
+config.training_mode=True
 
 routing_modes=["Q_routing_2_hop","Q_routing_1_hop","Q_routing_0_hop","Q_routing","TTSPWRR","TTSP"]
-config.routing_mode=routing_modes[1]
+config.routing_mode=routing_modes[0]
 # if config.routing_mode in ["TTSPWRR","TTSP"]:
 #     config.training_mode=False
 config.does_need_network_state=config.routing_mode in ["Q_routing_2_hop","Q_routing_1_hop","Q_routing_0_hop"]
@@ -97,22 +136,22 @@ config.runs_per_agent = 1
 config.overwrite_existing_results_file = True
 config.randomise_random_seed = True
 config.save_model = True
-config.model_version="V3"
+config.model_version="V4"
 
-config.network_state_size=4
+# config.network_state_size=4
 
 config.network_embed_size=0
 if config.routing_mode=="Q_routing_0_hop":
-    config.network_embed_size=4
+    config.network_embed_size=5
     DQN_linear_hidden_units=[8,6]
 
 
 if config.routing_mode=="Q_routing_1_hop":
-    config.network_embed_size=7
+    config.network_embed_size=10
     DQN_linear_hidden_units=[10,6]
 
 if config.routing_mode=="Q_routing_2_hop":
-    config.network_embed_size=10
+    config.network_embed_size=15
     DQN_linear_hidden_units=[12,9,6]
 
 
@@ -121,7 +160,8 @@ if config.routing_mode=="Q_routing_2_hop":
 
 num_GAT_layers=1 if config.routing_mode=="Q_routing_1_hop" else 2
 num_GAT_heads_per_layer=[3]*num_GAT_layers
-num_GAT_features_per_layer=[4,7] if config.routing_mode=="Q_routing_1_hop" else [4,7,10]
+num_GAT_features_per_layer=[5,10] if config.routing_mode=="Q_routing_1_hop" else [5,15,15]
+
 config.hyperparameters = {
     "GAT":{
     'lr': 0.01, 
@@ -156,7 +196,15 @@ config.hyperparameters = {
 
 }
 
+config.network_state=[]
+config.edge_index=[]
+init_traci()       
+config.network = RoadNetworkModel(config.Constants["ROOT"], config.Constants["Network_XML"])
+config.utils=Utils(config)
 
+config.environment = AR_SUMO_Environment(config)
+config.network_state_size=config.environment.utils.get_network_state_size()
+assert(config.network_state_size==num_GAT_features_per_layer[0])
 gat = GAT(
         config=config,
         num_of_layers=config.hyperparameters["GAT"]['num_of_layers'],
@@ -176,12 +224,11 @@ config.GAT_optim=optim.Adam(config.GAT_parameters,
                             eps=1e-4)
                             # weight_decay=config.hyperparameters["GAT"]['weight_decay'])
 # Adam(gat.parameters(), lr=config['lr'], weight_decay=config['weight_decay'])
-config.network_state=[]
-config.edge_index=[]
 
-config.environment = envm(config)
 
 if __name__== '__main__':
     AGENTS = [DQN] #DIAYN] # A3C] #SNN_HRL] #, DDQN]
     trainer = Trainer(config, AGENTS)
     trainer.run_games_for_agents()
+
+

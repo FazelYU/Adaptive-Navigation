@@ -36,6 +36,7 @@ class GAT(torch.nn.Module):
 
     def forward(self, data):
         data=data.view(data.size()[0],-1,self.config.network_state_size)
+        # breakpoint()
         return self.gat_net(data)
 
 
