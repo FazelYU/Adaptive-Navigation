@@ -141,6 +141,8 @@ config.model_version="V4"
 # config.network_state_size=4
 
 config.network_embed_size=0
+DQN_linear_hidden_units=[5,4]
+
 if config.routing_mode=="Q_routing_0_hop":
     config.network_embed_size=5
     DQN_linear_hidden_units=[8,6]
@@ -204,7 +206,10 @@ config.utils=Utils(config)
 
 config.environment = AR_SUMO_Environment(config)
 config.network_state_size=config.environment.utils.get_network_state_size()
-assert(config.network_state_size==num_GAT_features_per_layer[0])
+
+if config.routing_mode in ["Q_routing_1_hop","Q_routing_2_hop"]:
+    assert(config.network_state_size==num_GAT_features_per_layer[0])
+
 gat = GAT(
         config=config,
         num_of_layers=config.hyperparameters["GAT"]['num_of_layers'],

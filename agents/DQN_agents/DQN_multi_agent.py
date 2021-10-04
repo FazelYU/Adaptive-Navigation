@@ -40,13 +40,18 @@ class DQN(Base_Agent):
             else:
                 network_state_embedings=network_states_batch.view(states_batch.shape[0],-1,self.config.network_state_size)
         else:
-            size=self.config.network_state.size()
-            network_state_embedings=torch.empty(size[0],0).to(self.device)
+            batch_size=states_batch.size()[0]
+            network_size=self.config.network_state.size()[0]
+            network_state_embedings=torch.empty(batch_size,network_size,0).to(self.device)
         # breakpoint()
         actions=[]
         for state,network_state_embeding in zip(states,network_state_embedings):
             agent_id=self.get_agent_id(state)
-            intersection_state_embeding=network_state_embeding[state['agent_idx']]
+            try:
+                intersection_state_embeding=network_state_embeding[state['agent_idx']]
+            except:
+                breakpoint()
+
             destination_id=state['embeding'][0:self.intersection_id_size]
             destination_id_embeding=self.get_intersection_id_embedding(agent_id,destination_id,eval=True)            
             embeding=torch.cat((destination_id_embeding,intersection_state_embeding),0)
@@ -107,9 +112,8 @@ class DQN(Base_Agent):
                 network_state_embeding_batch=network_states_batch.view(batch_size,-1,self.config.network_state_size)
                 # breakpoint()
         else:
-            size=network_states_batch.view(batch_size,-1,self.config.network_state_size).size()
-            network_state_embeding_batch=torch.empty(size[0],size[1],0).to(self.device)
-            # breakpoint()
+            network_size=self.config.network_state.size()[0]
+            network_state_embeding_batch=torch.empty(batch_size,network_size,0).to(self.device)
 
         
         masks_dic={}
@@ -158,8 +162,9 @@ class DQN(Base_Agent):
             else:
                 network_state_embeding_batch=network_states_batch.view(network_states_batch.size()[0],-1,self.config.network_state_size)
         else:
-            size=network_states_batch.view(network_states_batch.size()[0],-1,self.config.network_state_size).size()
-            network_state_embeding_batch=torch.empty(size[0],size[1],0).to(self.device)
+            batch_size=actions.size()[0]
+            network_size=self.config.network_state.size()[0]
+            network_state_embeding_batch=torch.empty(batch_size,network_size,0).to(self.device)
 
         destination_ids=states_batch[:,0:self.intersection_id_size]
         destination_ids_embedings=self.get_intersection_id_embedding(agent_id,destination_ids)
