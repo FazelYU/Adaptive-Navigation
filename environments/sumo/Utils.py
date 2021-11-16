@@ -1,5 +1,4 @@
 import numpy
-
 import torch
 import json
 import random
@@ -18,33 +17,6 @@ from sklearn.decomposition import PCA
 import igraph as ig
 from scipy.stats import entropy
 
-
-# NETWORK="5x6"
-# self.config.Constants = {
-#     "NETWORK":NETWORK,
-#     "SUMO_PATH" : "/usr/share/sumo", #path to sumo in your system
-#     "SUMO_GUI_PATH" : "/usr/share/sumo/bin/sumo-gui", #path to sumo-gui bin in your system
-#     "SUMO_SHELL_PATH":"/usr/share/sumo/bin/sumo",
-#     "SUMO_CONFIG" : "./environments/sumo/networks/{}/network.sumocfg".format(NETWORK), #path to your sumo config file
-#     "ROOT" : "./",
-#     "Network_XML" : "./environments/sumo/networks/{}/{}.net.xml".format(NETWORK,NETWORK),
-#     'Additional_XML':"./environments/sumo/networks/{}/{}_additional.add.xml".format(NETWORK,NETWORK),
-#     'Analysis_Mode': True,
-#     'LOG' : False,
-#     'WARNINGS': False,
-#     'WHERE':False,
-#     'Vis_GAT':False,
-#     'Simulation_Delay' : '0',
-
-#     'il_lane_ID_subscribtion_code': 0x51,
-#     'il_last_step_vc_IDs_subscribtion_code': 0x12,
-#     'il_last_step_vc_count_subscribtion_code': 0x10,
-
-#     'vc_road_ID_subscribtion_code': 0x50,
-#     'vc_lane_ID_subscribtion_code':0x51,
-
-
-#     }
 
 class Utils(object):
     """docstring for Utils"""
@@ -163,12 +135,14 @@ class Utils(object):
         return state.unsqueeze(0)
 # ---------------------------------------------------------------------------
     def create_all_pairs_shortest_path_matrix(self,all_pairs_shortest_path_dic):
-        return torch.tensor(
+        matrix= torch.tensor(
             [
             [all_pairs_shortest_path_dic[agent_id_out][agent_id_in] for agent_id_in in self.agent_list] 
             for agent_id_out in self.agent_list
             ],
             device=self.config.device)
+        matrix/=matrix.max(1,keepdim=True)[0] # normalize
+        return matrix
     
     def get_shortet_path_distances(self,destination_agent_id):
         return self.all_pairs_shortest_path_matrix[self.agent_index_dic[destination_agent_id]]

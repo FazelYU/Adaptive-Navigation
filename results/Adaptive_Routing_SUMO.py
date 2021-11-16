@@ -77,7 +77,7 @@ config.use_GPU = True
 config.training_mode=True
 
 routing_modes=["Q_routing_2_hop","Q_routing_1_hop","Q_routing_0_hop","Q_routing","TTSPWRR","TTSP"]
-config.routing_mode=routing_modes[0]
+config.routing_mode=routing_modes[1]
 # if config.routing_mode in ["TTSPWRR","TTSP"]:
 #     config.training_mode=False
 config.does_need_network_state=config.routing_mode in ["Q_routing_2_hop","Q_routing_1_hop","Q_routing_0_hop"]
@@ -185,7 +185,7 @@ config.hyperparameters = {
         "buffer_size": 10000,
         "batch_size": 64,
         "final_layer_activation": None,
-        "batch_norm": False,
+        "batch_norm": True,
         "gradient_clipping_norm": 5,
         "num-new-exp-to-learn":1,
         "tau": 0.01,

@@ -222,6 +222,7 @@ class GATLayer(torch.nn.Module):
 
         out_nodes_features = self.skip_concat_bias(attentions_per_edge, in_nodes_features, out_nodes_features)
         
+        breakpoint()
         return out_nodes_features
 
 
