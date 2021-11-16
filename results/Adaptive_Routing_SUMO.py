@@ -33,7 +33,7 @@ import traci
 
 def init_traci():
     sys.path.append(os.path.join(config.Constants['SUMO_PATH'], os.sep, 'tools'))
-    sumoBinary = config.Constants["SUMO_GUI_PATH"]
+    sumoBinary = config.Constants["SUMO_SHELL_PATH"]
     sumoCmd = [sumoBinary, '-S', '-d', config.Constants['Simulation_Delay'], "-c", config.Constants["SUMO_CONFIG"],"--no-warnings","true"]
     traci.start(sumoCmd)
 
@@ -149,8 +149,8 @@ if config.routing_mode=="Q_routing_0_hop":
 
 
 if config.routing_mode=="Q_routing_1_hop":
-    config.network_embed_size=10
-    DQN_linear_hidden_units=[10,6]
+    config.network_embed_size=15
+    DQN_linear_hidden_units=[15,7]
 
 if config.routing_mode=="Q_routing_2_hop":
     config.network_embed_size=15
