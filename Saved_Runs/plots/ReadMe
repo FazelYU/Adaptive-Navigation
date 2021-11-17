@@ -1,0 +1,9 @@
+to plot the results:
+1-copy the CSV file from the Save-Runs to the folders
+2- run the following in the terminal:
+	python plot.py name-of-experiemnt
+
+e.g: 
+	python plot.py Toronto
+
+
