@@ -13,6 +13,8 @@ To address limitations and challenges of the current approach to solve the traff
 
 Through an extensive experimental evaluation on both synthetic and realistic road networks we demonstrate that the proposed MARL model can outperform the SPF algorithm by (up to) 20\% in average travel time.
 
+![alt text](https://github.com/FazelYU/Adaptive-Navigation/blob/add-license-1/Saved_Results/MARL%20Model%20Example.gif)
+
 Code
 -----------------------------
 prerequisites:
