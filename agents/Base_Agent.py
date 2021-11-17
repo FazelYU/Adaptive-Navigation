@@ -530,15 +530,15 @@ class Base_Agent(object):
     def save_policies(self):
         """Saves the policy"""
         for agent_id in self.agent_dic:
-            torch.save(self.agent_dic[agent_id]["policy"].state_dict(),"Models/{}/{}/{}/agent_{}_policy.pt".format(self.config.model_version,self.config.network_name,self.config.exp_name,agent_id))
-            torch.save(self.agent_dic[agent_id]["intersec_id_embed_layer"].state_dict(),"Models/{}/{}/{}/agent_{}_id_embed_layer.pt".format(self.config.model_version,self.config.network_name,self.config.exp_name,agent_id))
+            torch.save(self.agent_dic[agent_id]["policy"].state_dict(),"Models/{}/{}/{}/agent_{}_policy.pt".format(self.config.model_version,self.config.Constants["NETWORK"],self.config.routing_mode,agent_id))
+            torch.save(self.agent_dic[agent_id]["intersec_id_embed_layer"].state_dict(),"Models/{}/{}/{}/agent_{}_id_embed_layer.pt".format(self.config.model_version,self.config.Constants["NETWORK"],self.config.routing_mode,agent_id))
 
-        torch.save(self.config.GAT.state_dict(),"Models/{}/{}/{}/GAT.pt".format(self.config.model_version,self.config.network_name,self.config.exp_name))
+        torch.save(self.config.GAT.state_dict(),"Models/{}/{}/{}/GAT.pt".format(self.config.model_version,self.config.Constants["NETWORK"],self.config.routing_mode))
         
         # torch.save(self.q_network_local.state_dict(), "Models/{}_local_network.pt".format(self.agent_name))
 
     def load_policies(self):
         for agent_id in self.agent_dic:
-            self.agent_dic[agent_id]["policy"].load_state_dict(torch.load("Saved Models/{}/{}/{}/agent_{}_policy.pt".format(self.config.model_version,self.config.network_name,self.config.exp_name,agent_id),map_location='cuda:0'))
-            self.agent_dic[agent_id]["intersec_id_embed_layer"].load_state_dict(torch.load("Saved Models/{}/{}/{}/agent_{}_id_embed_layer.pt".format(self.config.model_version,self.config.network_name,self.config.exp_name,agent_id),map_location='cuda:0'))
-        self.config.GAT.load_state_dict(torch.load("Saved Models/{}/{}/{}/GAT.pt".format(self.config.model_version,self.config.network_name,self.config.exp_name),map_location='cuda:0'))
+            self.agent_dic[agent_id]["policy"].load_state_dict(torch.load("Saved Models/{}/{}/{}/agent_{}_policy.pt".format(self.config.model_version,self.config.Constants["NETWORK"],self.config.routing_mode,agent_id),map_location='cuda:0'))
+            self.agent_dic[agent_id]["intersec_id_embed_layer"].load_state_dict(torch.load("Saved Models/{}/{}/{}/agent_{}_id_embed_layer.pt".format(self.config.model_version,self.config.Constants["NETWORK"],self.config.routing_mode,agent_id),map_location='cuda:0'))
+        self.config.GAT.load_state_dict(torch.load("Saved Models/{}/{}/{}/GAT.pt".format(self.config.model_version,self.config.Constants["NETWORK"],self.config.routing_mode),map_location='cuda:0'))

@@ -3,54 +3,71 @@ import sys
 from os.path import dirname, abspath
 sys.path.append(dirname(dirname(abspath(__file__))))
 
-from agents.DQN_agents.DQN_multi_agent import DQN
-from environments.sumo.AR_SUMO_Environment import AR_SUMO_Environment
-from agents.Trainer_multi_agent import Trainer
-from utilities.data_structures.Config import Config
-
 import time
 import gym
 import math
 import random
 import numpy as np
-# import matplotlib
-# import matplotlib.pyplot as plt
-from collections import namedtuple
-from itertools import count
-from PIL import Image
+
+from utilities.data_structures.Config import Config
 
 import torch
-import torch.nn as nn
 import torch.optim as optim
-import torch.nn.functional as F
-import torchvision.transforms as T
 from pytorchGAT.models.definitions.GAT import GAT
-import xml.etree.ElementTree as ET
-from environments.sumo.Utils import Utils
-from environments.sumo.model.network import RoadNetworkModel
-import traci
 
+# import the simulator, the parser for the map data, network model, environment, and utils of the environment
+import traci
+import xml.etree.ElementTree as ET
+from environments.sumo.model.network import RoadNetworkModel
+from environments.sumo.AR_SUMO_Environment import AR_SUMO_Environment
+from environments.sumo.Utils import Utils
+
+# import the agents and the trainer
+from agents.DQN_agents.DQN_multi_agent import DQN
+from agents.Trainer_multi_agent import Trainer
 
 def init_traci():
+    """ initializes the simulator"""
     sys.path.append(os.path.join(config.Constants['SUMO_PATH'], os.sep, 'tools'))
     sumoBinary = config.Constants["SUMO_SHELL_PATH"]
     sumoCmd = [sumoBinary, '-S', '-d', config.Constants['Simulation_Delay'], "-c", config.Constants["SUMO_CONFIG"],"--no-warnings","true"]
     traci.start(sumoCmd)
 
-
-
 config = Config()
 
-NETWORK="toronto"
-Constants = {
-    "NETWORK":NETWORK,
+config.use_GPU = True
+assert(torch.cuda.is_available())
+config.device = torch.device(0)
+config.seed = 1
+config.envm_seed=100
+
+config.training_mode=True
+
+routing_modes=["Q_routing_2_hop","Q_routing_1_hop","Q_routing_0_hop","Q_routing","TTSPWRR","TTSP"]
+config.routing_mode=routing_modes[1]
+config.does_need_network_state=config.routing_mode in ["Q_routing_2_hop","Q_routing_1_hop","Q_routing_0_hop"]
+config.does_need_network_state_embeding=config.routing_mode in ["Q_routing_2_hop","Q_routing_1_hop"]
+config.retain_graph=config.does_need_network_state_embeding
+# config.exp_name=config.routing_mode
+config.should_load_model= False if  config.routing_mode== "TTSPWRR" or \
+                                    config.routing_mode=="TTSP" else \
+                                    not config.training_mode
+config.should_save_model=False if  config.routing_mode== "TTSPWRR" or \
+                                    config.routing_mode=="TTSP" else \
+                                    config.training_mode
+
+# name of the network/ experiement:
+# other valid values: ["toronto",5x6"]
+network_name="toronto" 
+config.Constants = {
+    "NETWORK":network_name,
     "SUMO_PATH" : "/usr/share/sumo", #path to sumo in your system
     "SUMO_GUI_PATH" : "/usr/share/sumo/bin/sumo-gui", #path to sumo-gui bin in your system
     "SUMO_SHELL_PATH":"/usr/share/sumo/bin/sumo",
-    "SUMO_CONFIG" : "./environments/sumo/networks/{}/network.sumocfg".format(NETWORK), #path to your sumo config file
+    "SUMO_CONFIG" : "./environments/sumo/networks/{}/network.sumocfg".format(network_name), #path to your sumo config file
     "ROOT" : "./",
-    "Network_XML" : "./environments/sumo/networks/{}/{}.net.xml".format(NETWORK,NETWORK),
-    'Additional_XML':"./environments/sumo/networks/{}/{}_additional.add.xml".format(NETWORK,NETWORK),
+    "Network_XML" : "./environments/sumo/networks/{}/{}.net.xml".format(network_name,network_name),
+    'Additional_XML':"./environments/sumo/networks/{}/{}_additional.add.xml".format(network_name,network_name),
     'Analysis_Mode': True,
     'LOG' : False,
     'WARNINGS': False,
@@ -64,70 +81,42 @@ Constants = {
 
     'vc_road_ID_subscribtion_code': 0x50,
     'vc_lane_ID_subscribtion_code':0x51,
-
-
     }
-config.Constants=Constants    
-config.network_name=Constants["NETWORK"]
-
-treeTrips=ET.parse('./environments/sumo/{}_trips.xml'.format(config.network_name))
-rootTrips = treeTrips.getroot()
-
-config.use_GPU = True
-config.training_mode=True
-
-routing_modes=["Q_routing_2_hop","Q_routing_1_hop","Q_routing_0_hop","Q_routing","TTSPWRR","TTSP"]
-config.routing_mode=routing_modes[1]
-# if config.routing_mode in ["TTSPWRR","TTSP"]:
-#     config.training_mode=False
-config.does_need_network_state=config.routing_mode in ["Q_routing_2_hop","Q_routing_1_hop","Q_routing_0_hop"]
-config.does_need_network_state_embeding=config.routing_mode in ["Q_routing_2_hop","Q_routing_1_hop"]
-config.retain_graph=config.does_need_network_state_embeding
 
 
-config.exp_name=config.routing_mode
 
-assert(torch.cuda.is_available())
-config.device = torch.device(0)
-config.seed = 1
-config.envm_seed=100
-config.should_load_model= False if  config.routing_mode== "TTSPWRR" or \
-                                    config.routing_mode=="TTSP" else \
-                                    not config.training_mode
-config.should_save_model=False if  config.routing_mode== "TTSPWRR" or \
-                                    config.routing_mode=="TTSP" else \
-                                    config.training_mode
 
-# -------------------------------------------------
-config.num_episodes_to_run = 800 if config.training_mode else 5
+
+
+
+
+config.num_episodes_to_run = 1 if config.training_mode else 5
 
 config.Max_number_vc=200
 config.uniform_demand_period=5
 config.biased_demand_2_uniform_demand_ratio=0.1
 
 config.traffic_period=500
-config.max_num_sim_time_step_per_episode=5000
+config.max_num_sim_time_step_per_episode=50
 
 config.demand_scale=1
 config.congestion_epsilon=0.25
 config.congestion_speed_factor=0.1
 
-if config.network_name=="5x6":
+if network_name=="5x6":
     config.biased_demand=[['-gneE19','-gneE25']]
 else:
     config.biased_demand=[['23973402#0','435629850']] #list of the biased O-D demands 
 
 config.uniform_demands=[
         [trip_xml.attrib["origin"],trip_xml.attrib["destination"]] 
-            for trip_xml in rootTrips.findall("trip")
+            for trip_xml in ET.parse('./environments/sumo/{}_trips.xml'.format(network_name)).getroot().findall("trip")
             ]
 
 config.next_uniform_demand_index=0
 config.num_biased_vc_dispatched=0
 config.num_uniform_vc_dispatched=0
 # -------------------------------------------------
-config.file_to_save_data_results = "Data_and_Graphs/Adaptive_Routing.pkl"
-config.file_to_save_results_graph = "Data_and_Graphs/Adaptive_Routing.png"
 config.show_solution_score = False
 config.visualise_individual_results = False
 config.visualise_overall_agent_results = True
@@ -235,5 +224,6 @@ if __name__== '__main__':
     AGENTS = [DQN] #DIAYN] # A3C] #SNN_HRL] #, DDQN]
     trainer = Trainer(config, AGENTS)
     trainer.run_games_for_agents()
+
 
 
