@@ -15,10 +15,14 @@ Through an extensive experimental evaluation on both synthetic and realistic roa
 
 Example:
 -----------------------------
-The figure below gives an example of routing of two vehicles with two different destinations using the MARL model.
+The figure below gives an example of routing of two vehicles with two different destinations using the MARL model:
 
 ![alt text](https://github.com/FazelYU/Adaptive-Navigation/blob/add-license-1/Saved_Results/MARL%20Model%20Example.gif)
 
+Model Architecure:
+-----------------------------
+The figure below shows the archeticture of the Adaptive Navigation algorithm:
+![alt text](https://github.com/FazelYU/Adaptive-Navigation/blob/add-license-1/Saved_Results/Arch.png)
 Code
 -----------------------------
 prerequisites:
