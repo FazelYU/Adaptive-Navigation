@@ -1,8 +1,7 @@
-
----NOTE: I am currently working on the documentation and the readiblity of the code. Sorry about it :) !
+Paper: under review Web 2022
 
 Abstract:
-
+----------------------------------------
 Traffic congestion in urban road networks is a condition characterised by slower speeds, longer trip times, increased air pollution, and driver frustration. Traffic congestion can be attributed to a volume of traffic that generates demand for space greater than the available street capacity. A number of other specific circumstances can also cause or aggravate congestion, including traffic incidents, road maintenance work and bad weather conditions.
 
 
@@ -12,4 +11,10 @@ While construction of new road infrastructure is an expensive solution, traffic 
 To address limitations and challenges of the current approach to solve the traffic congestion problem, we propose **_a network-aware multi-agent reinforcement learning_ (MARL)** model for the navigation of a fleet of vehicles in the road network. The proposed model is {\em _adaptive_} to the current traffic conditions of the road network. The main idea is that a Reinforcement Learning (RL) agent is assigned to every road intersection and operates as a _**router agent**_, responsible for providing routing instructions to a vehicle in the network. The vehicle traveling in the road network is aware of its final destination but not its exact full route/path to it. When it reaches an intersection, it generates _**a routing query**_ to the RL agent assigned to that intersection, consisting of its final destination. The RL agent generates _**a routing response**_ based on (i) the vehicle’s destination, (ii) the current state of the network in the neighborhood of the agent aggregated with a shared graph attention network (GAT) model, and (iii) routing policies learned by cooperating with other RL agents assigned to neighboring intersections. The vehicle follows the routing response from the router agents until it reaches its destination. 
 
 
-Through an extensive experimental evaluation on both synthetic and realistic road networks we demonstrate that the proposed MARL model can outperform the SPF algorithm by (up to) 17.3\% in average travel time.
+Through an extensive experimental evaluation on both synthetic and realistic road networks we demonstrate that the proposed MARL model can outperform the SPF algorithm by (up to) 20\% in average travel time.
+
+Code
+-----------------------------
+prerequisites
+-----------------------------
+
