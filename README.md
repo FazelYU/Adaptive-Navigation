@@ -26,7 +26,8 @@ The figure below shows the archeticture of the Adaptive Navigation algorithm:
 
 Reslts:
 -----------------------------
-The figures below show two test cases, the 5x6 grid network, and the abstracted network of DT Toronto:
+The figures below show two test cases, the 5x6 grid network, and the abstracted network of DT Toronto:style="margin-left: auto;
+                margin-right: auto;"
 <table>
   <tr>
     <td><img src="/Saved_Results/Networks/Toronto_Abstracted.png" width=500 height=500> <figcaption>Fig.1.1 - DT Toronto</td>
@@ -49,7 +50,8 @@ The figures below show the training results of the two test cases. Q-routing is 
 
  After the training is complete, for testing purposes, we generate 2000 uniformly distributed trips in each test case. We also consider two sensible baselines: 1- SPF (travel time shortest path first), and SPFWR (travel time shortest path wih rerouting). Table below compares the results of the testing phase:
   
-  <table style="  margin-left: auto; margin-right: auto;">
+  <table style="margin-left: auto;
+                margin-right: auto;">
     <tr>
       <td></td>
       <td> DT Toronto </td>
@@ -87,11 +89,40 @@ The figures below show the training results of the two test cases. Q-routing is 
     </tr>
   </table>
     
-Code
------------------------------
-prerequisites:
------------------------------
 How to run:
 -----------------------------
+* to set the routing algorithm, edit line 47 of the run_exp.py. 
+    ```
+    line 47: config.routing_mode=routing_modes[1]
+    ```
 
+  sets the routing for AN(h=1)
+
+* to change between training/testing, edit line 44 of the run_exp.py. e.g. for testing phase:
+  ```
+    line 44: config.training_mode=False
+  ```
+* to run toronto experiement, edit line 61 of run_exp.py to :
+  ```
+     line 61: network_name="toronto"
+  ```
+  and run:
+  
+```
+  python run_exp.py
+  
+```
+  
+* to run 5x6 experiement, set line 61 of run_exp.py to : 
+  
+  ```
+  line 61: network_name="5x6"
+  
+  ```
+  and run:
+  
+```
+  python run_exp.py  
+```
+  
 
