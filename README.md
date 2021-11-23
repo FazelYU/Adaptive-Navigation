@@ -55,7 +55,7 @@ The figures below show the training results of the two test cases. Q-routing is 
     <tr>
       <td></td>
       <td> DT Toronto </td>
-      <td> DT Toronto </td>
+      <td> 5x6 Grid </td>
     </tr>
     <tr>
       <td>AN (h=2)</td>
