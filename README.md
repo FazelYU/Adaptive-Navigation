@@ -40,10 +40,11 @@ The figures below show the training results of the two test cases. Q-routing is 
 
 <table>
   <tr>
-    <td><img src="/Saved_Results/AVTT/5x6 Average Travel Time.png" width=300 height=200> <figcaption>Fig.2.1 - 5x6 Average Travel Time</td>
-    <td><img src="/Saved_Results/AVTT/5x6 Last 100 Episodes.png" width=300 height=200> <figcaption>Fig.2.2 - 5x6 Average Travel Time Zoom</figcaption></td>
-    <td><img src="/Saved_Results/AVTT/Toronto Average Travel Time.png" width=300 height=200> <figcaption>Fig.2.3 - Toronto Average Travel Time </figcaption></td>
-    <td><img src="/Saved_Results/AVTT/Toronto Last 100 Episodes.png" width=300 height=200> <figcaption>Fig.2.4 - Toronto Average Travel Time Zoom</figcaption</td>
+        <td><img src="/Saved_Results/AVTT/Toronto Average Travel Time.png" width=300 height=200> <figcaption>Fig.2.1 - Toronto Average Travel Time </figcaption></td>
+    <td><img src="/Saved_Results/AVTT/Toronto Last 100 Episodes.png" width=300 height=200> <figcaption>Fig.2.2 - Toronto Average Travel Time Zoom</figcaption</td>
+    <td><img src="/Saved_Results/AVTT/5x6 Average Travel Time.png" width=300 height=200> <figcaption>Fig.2.3 - 5x6 Average Travel Time</td>
+    <td><img src="/Saved_Results/AVTT/5x6 Last 100 Episodes.png" width=300 height=200> <figcaption>Fig.2.4 - 5x6 Average Travel Time Zoom</figcaption></td>
+
   </tr>
 </table>
 
