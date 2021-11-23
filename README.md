@@ -26,8 +26,7 @@ The figure below shows the archeticture of the Adaptive Navigation algorithm:
 
 Reslts:
 -----------------------------
-The figures below show two test cases, the 5x6 grid network, and the abstracted network of DT Toronto:style="margin-left: auto;
-                margin-right: auto;"
+The figures below show two test cases, the 5x6 grid network, and the abstracted network of DT Toronto extracted from <a href="https://www.openstreetmap.org/relation/2989349#map=13/43.6470/-79.3794"> Open Streets Map </a>:
 <table>
   <tr>
     <td><img src="/Saved_Results/Networks/Toronto_Abstracted.png" width=500 height=400> <figcaption>Fig.1.1 - DT Toronto</td>
@@ -48,7 +47,7 @@ The figures below show the training results of the two test cases. Q-routing is 
   </tr>
 </table>
 
- After the training is complete, for testing purposes, we generate 2000 uniformly distributed trips in each test case. We also consider two sensible baselines: 1- SPF (travel time shortest path first), and SPFWR (travel time shortest path wih rerouting). Table below compares the results of the testing phase:
+ After the training is complete, for testing purposes, we generate 2000 uniformly distributed trips in each test case. We also consider two sensible baselines: 1- SPF (travel time shortest path first), and SPFWR (travel time shortest path first wih rerouting). Note that SPFWR is prohibitively computationally expensive as it needs to recompute all the shortest pathes in every time step. Table below compares the results of the testing phase:
   
   <table>
     <tr>
@@ -87,7 +86,13 @@ The figures below show the training results of the two test cases. Q-routing is 
       <td> 205.1 </td>
     </tr>
   </table>
-    
+In DT Toronto AN(h=1) has been able to perform as good as the SPFWR. 
+  
+On the other hand, Interestingly, in the 5x6 grid network the SPFWR is performaing very poorly. The reason for this observation can be rooted to the low capacity of the network. SPFWR greedily sends all the vehicles through the current shortest path and easily congests it. In 4x5 network, AN(h=1) out performs other baselines.
+  
+![alt text](https://github.com/FazelYU/Adaptive-Navigation/blob/add-license-1/Saved_Results/MARL%20Model%20Example.gif)
+
+  
 How to run:
 -----------------------------
 * to set the routing algorithm, edit line 47 of the run_exp.py. 
