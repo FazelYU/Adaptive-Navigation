@@ -30,8 +30,8 @@ The figures below show two test cases, the 5x6 grid network, and the abstracted 
                 margin-right: auto;"
 <table>
   <tr>
-    <td><img src="/Saved_Results/Networks/Toronto_Abstracted.png" width=500 height=500> <figcaption>Fig.1.1 - DT Toronto</td>
-    <td><img src="/Saved_Results/Networks/net5x6.png" width=500 height=500> <figcaption>Fig.1.2 - 5x6 Grid.</figcaption></td>
+    <td><img src="/Saved_Results/Networks/Toronto_Abstracted.png" width=500 height=400> <figcaption>Fig.1.1 - DT Toronto</td>
+    <td><img src="/Saved_Results/Networks/net5x6.png" width=500 height=400> <figcaption>Fig.1.2 - 5x6 Grid.</figcaption></td>
   </tr>
 <!--   <tr>
     <td><img src="/Saved_Results/Networks/Toronto_Abstracted.png" width=270 height=480></td>
