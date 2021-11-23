@@ -1,4 +1,4 @@
-Paper: under review Web 2022
+Paper: to be submitted
 
 Abstract
 ----------------------------------------
@@ -23,10 +23,75 @@ Model Architecure:
 -----------------------------
 The figure below shows the archeticture of the Adaptive Navigation algorithm:
 ![alt text](https://github.com/FazelYU/Adaptive-Navigation/blob/add-license-1/Saved_Results/Arch.png)
+
+Reslts:
+-----------------------------
+The figures below show two test cases, the 5x6 grid network, and the abstracted network of DT Toronto:
+<table>
+  <tr>
+    <td><img src="/Saved_Results/Networks/Toronto_Abstracted.png" width=500 height=500> <figcaption>Fig.1.1 - DT Toronto</td>
+    <td><img src="/Saved_Results/Networks/net5x6.png" width=500 height=500> <figcaption>Fig.1.2 - 5x6 Grid.</figcaption></td>
+  </tr>
+<!--   <tr>
+    <td><img src="/Saved_Results/Networks/Toronto_Abstracted.png" width=270 height=480></td>
+  </tr> -->
+</table>
+The figures below show the training results of the two test cases. Q-routing is a deep learning implementaion of <a href="https://proceedings.neurips.cc/paper/1993/file/4ea06fbc83cdd0a06020c35d50e1e89a-Paper.pdf"> Boyan, and Litman</a> IP network routing algorithm. The number of GAT layers in the Adaptive Navigation algorithm is a hyper parameter denoted as "h".
+
+<table>
+  <tr>
+    <td><img src="/Saved_Results/AVTT/5x6 Average Travel Time.png" width=250 height=250> <figcaption>Fig.2.1 - 5x6 Average Travel Time</td>
+    <td><img src="/Saved_Results/AVTT/5x6 Last 100 Episodes.png" width=250 height=250> <figcaption>Fig.2.2 - 5x6 Average Travel Time Zoom</figcaption></td>
+    <td><img src="/Saved_Results/AVTT/Toronto Average Travel Time.png" width=250 height=250> <figcaption>Fig.2.3 - Toronto Average Travel Time </figcaption></td>
+    <td><img src="/Saved_Results/AVTT/Toronto Last 100 Episodes.png" width=250 height=250> <figcaption>Fig.2.4 - Toronto Average Travel Time Zoom</figcaption</td>
+  </tr>
+</table>
+
+ After the training is complete, for testing purposes, we generate 2000 uniformly distributed trips in each test case. We also consider two sensible baselines: 1- SPF (travel time shortest path first), and SPFWR (travel time shortest path wih rerouting). Table below compares the results of the testing phase:
+  
+  <table style="  margin-left: auto; margin-right: auto;">
+    <tr>
+      <td></td>
+      <td> DT Toronto </td>
+      <td> DT Toronto </td>
+    </tr>
+    <tr>
+      <td>AN (h=2)</td>
+      <td> 479.3 </td>
+      <td> 145.4 </td>
+    </tr>
+    <tr>
+      <td>AN (h=1)</td>
+      <td> <u> 476.4 </u> </td>
+      <td> <b> 138.4 </b> </td>
+    </tr>
+    <tr>
+      <td>AN (h=0)</td>
+      <td> 477.6 </td>
+      <td> <u> 143.7 </u> </td>
+    </tr>
+    <tr>
+      <td>Q-routing</td>
+      <td> inf (loop) </td>
+      <td> 159.6 </td>
+    </tr>
+    <tr>
+      <td>SPF</td>
+      <td>551.7</td>
+      <td> 173.4 </td>
+    </tr>
+    <tr>
+      <td>SPFWR</td>
+      <td> <b> 475.6 </b> </td>
+      <td> 205.1 </td>
+    </tr>
+  </table>
+    
 Code
 -----------------------------
 prerequisites:
 -----------------------------
 How to run:
 -----------------------------
+
 
