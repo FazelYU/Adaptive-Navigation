@@ -50,8 +50,7 @@ The figures below show the training results of the two test cases. Q-routing is 
 
  After the training is complete, for testing purposes, we generate 2000 uniformly distributed trips in each test case. We also consider two sensible baselines: 1- SPF (travel time shortest path first), and SPFWR (travel time shortest path wih rerouting). Table below compares the results of the testing phase:
   
-  <table style="margin-left: auto;
-                margin-right: auto;">
+  <table>
     <tr>
       <td></td>
       <td> DT Toronto </td>
