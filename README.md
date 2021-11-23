@@ -88,9 +88,11 @@ The figures below show the training results of the two test cases. Q-routing is 
   </table>
 In DT Toronto AN(h=1) has been able to perform as good as the SPFWR. 
   
-On the other hand, Interestingly, in the 5x6 grid network the SPFWR is performaing very poorly. The reason for this observation can be rooted to the low capacity of the network. SPFWR greedily sends all the vehicles through the current shortest path and easily congests it. In 4x5 network, AN(h=1) out performs other baselines.
+On the other hand, counter-intutively, in the 5x6 grid network the SPFWR performs poorly. The reason for this observation can be rooted to the low capacity of the network. SPFWR greedily sends all the vehicles through the current shortest path and easily congests it. Moreover, SPFWR does not consider the waiting times in the queue of the traffic lights. As a result it may lead to unnecessary changes of the route that stuck further behind the traffic lights. In 4x5 network, AN(h=1) out performs other baselines.
   
-![alt text](https://github.com/FazelYU/Adaptive-Navigation/blob/add-license-1/Saved_Results/MARL%20Model%20Example.gif)
+The figure below, shows part of the simulation for the SPWR. One can see that the traffic in the network is increasing as the time pass by. Also, you can see that at times some roadsegments get overpopulated by the SPFWR algorithm.
+  
+![alt text](https://github.com/FazelYU/Adaptive-Navigation/blob/add-license-1/Saved_Results/whyTTSPfails.gif)
 
   
 How to run:
