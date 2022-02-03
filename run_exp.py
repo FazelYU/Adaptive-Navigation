@@ -26,12 +26,6 @@ from environments.sumo.Utils import Utils
 from agents.DQN_agents.DQN_multi_agent import DQN
 from agents.Trainer_multi_agent import Trainer
 
-def init_traci():
-    """ initializes the simulator"""
-    sys.path.append(os.path.join(config.Constants['SUMO_PATH'], os.sep, 'tools'))
-    sumoBinary = config.Constants["SUMO_SHELL_PATH"]
-    sumoCmd = [sumoBinary, '-S', '-d', config.Constants['Simulation_Delay'], "-c", config.Constants["SUMO_CONFIG"],"--no-warnings","true"]
-    traci.start(sumoCmd)
 
 config = Config()
 
@@ -58,7 +52,7 @@ config.should_save_model=False if  config.routing_mode== "TTSPWRR" or \
 
 # name of the network/ experiement:
 # other valid values: ["toronto",5x6"]
-network_name="toronto" 
+network_name="UES_Manhatan" 
 config.Constants = {
     "NETWORK":network_name,
     "SUMO_PATH" : "/usr/share/sumo", #path to sumo in your system
@@ -85,19 +79,14 @@ config.Constants = {
 
 
 
-
-
-
-
-
-config.num_episodes_to_run = 1 if config.training_mode else 5
+config.num_episodes_to_run = 10 if config.training_mode else 5
 
 config.Max_number_vc=200
 config.uniform_demand_period=5
 config.biased_demand_2_uniform_demand_ratio=0.1
 
 config.traffic_period=500
-config.max_num_sim_time_step_per_episode=50
+config.max_num_sim_time_step_per_episode=5000
 
 config.demand_scale=1
 config.congestion_epsilon=0.25
@@ -105,6 +94,8 @@ config.congestion_speed_factor=0.1
 
 if network_name=="5x6":
     config.biased_demand=[['-gneE19','-gneE25']]
+elif network_name=="UES_Manhatan" :
+    config.biased_demand=[['AA7AB7','BM0BN0']]
 else:
     config.biased_demand=[['23973402#0','435629850']] #list of the biased O-D demands 
 
@@ -189,6 +180,15 @@ config.hyperparameters = {
 
 config.network_state=[]
 config.edge_index=[]
+
+
+def init_traci():
+    """ initializes the simulator"""
+    sys.path.append(os.path.join(config.Constants['SUMO_PATH'], os.sep, 'tools'))
+    sumoBinary = config.Constants["SUMO_GUI_PATH"]
+    sumoCmd = [sumoBinary, '-S', '-d', config.Constants['Simulation_Delay'], "-c", config.Constants["SUMO_CONFIG"],"--no-warnings","true"]
+    traci.start(sumoCmd)
+
 init_traci()       
 config.network = RoadNetworkModel(config.Constants["ROOT"], config.Constants["Network_XML"])
 config.utils=Utils(config)
