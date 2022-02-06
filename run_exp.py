@@ -9,6 +9,7 @@ import math
 import random
 import numpy as np
 
+
 from utilities.data_structures.Config import Config
 
 import torch
@@ -38,7 +39,7 @@ config.envm_seed=100
 config.training_mode=True
 
 routing_modes=["Q_routing_2_hop","Q_routing_1_hop","Q_routing_0_hop","Q_routing","TTSPWRR","TTSP"]
-config.routing_mode=routing_modes[1]
+config.routing_mode=routing_modes[0]
 config.does_need_network_state=config.routing_mode in ["Q_routing_2_hop","Q_routing_1_hop","Q_routing_0_hop"]
 config.does_need_network_state_embeding=config.routing_mode in ["Q_routing_2_hop","Q_routing_1_hop"]
 config.retain_graph=config.does_need_network_state_embeding
@@ -118,31 +119,30 @@ config.randomise_random_seed = True
 config.save_model = True
 config.model_version="V4"
 
-# config.network_state_size=4
 
-config.network_embed_size=0
-DQN_linear_hidden_units=[5,4]
+if config.routing_mode=="Q_routing":
+    config.network_embed_size=0
+    DQN_linear_hidden_units=[5,4]
 
 if config.routing_mode=="Q_routing_0_hop":
+    num_GAT_layers=0
     config.network_embed_size=5
     DQN_linear_hidden_units=[8,6]
 
 
 if config.routing_mode=="Q_routing_1_hop":
+    num_GAT_layers=1
     config.network_embed_size=15
+    num_GAT_features_per_layer=[5,10]
     DQN_linear_hidden_units=[15,7]
 
 if config.routing_mode=="Q_routing_2_hop":
-    config.network_embed_size=15
+    num_GAT_layers=2
+    config.network_embed_size=35
+    num_GAT_features_per_layer=[5,15,15]
     DQN_linear_hidden_units=[12,9,6]
 
-
-
-
-
-num_GAT_layers=1 if config.routing_mode=="Q_routing_1_hop" else 2
-num_GAT_heads_per_layer=[3]*num_GAT_layers
-num_GAT_features_per_layer=[5,10] if config.routing_mode=="Q_routing_1_hop" else [5,15,15]
+num_GAT_heads_per_layer=[1]*num_GAT_layers
 
 config.hyperparameters = {
     "GAT":{

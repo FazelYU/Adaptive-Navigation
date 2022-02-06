@@ -36,8 +36,9 @@ class GAT(torch.nn.Module):
 
     def forward(self, data):
         data=data.view(data.size()[0],-1,self.config.network_state_size)
-        # breakpoint()
-        return self.gat_net(data)
+        data_layer1=self.gat_net[0](data)
+        data_layer2=self.gat_net[1](data_layer1)
+        return torch.cat((data,data_layer1,data_layer2),2)
 
 
 class GATLayer(torch.nn.Module):
@@ -163,7 +164,6 @@ class GATLayer(torch.nn.Module):
         #
         # Step 1: Linear Projection + regularization
         #
-        # breakpoint()
         edge_index=self.config.edge_index
         batch_size,num_of_nodes,num_in_features=in_nodes_features.size()[0:3]
 
@@ -223,7 +223,9 @@ class GATLayer(torch.nn.Module):
         out_nodes_features = self.skip_concat_bias(attentions_per_edge, in_nodes_features, out_nodes_features)
         
         # breakpoint()
-        return torch.cat((in_nodes_features,out_nodes_features),2)
+        # breakpoint()
+        # return torch.cat((in_nodes_features,out_nodes_features),2)
+        return out_nodes_features
         # return out_nodes_features
 
 
