@@ -26,6 +26,8 @@ class GAT(torch.nn.Module):
             )
             gat_layers.append(layer)
 
+        # self.gat_net=gat_layers
+
         self.gat_net = nn.Sequential(
             *gat_layers,
         )
@@ -37,8 +39,12 @@ class GAT(torch.nn.Module):
     def forward(self, data):
         data=data.view(data.size()[0],-1,self.config.network_state_size)
         data_layer1=self.gat_net[0](data)
-        data_layer2=self.gat_net[1](data_layer1)
-        return torch.cat((data,data_layer1,data_layer2),2)
+        if (len(self.gat_net)==1):
+            return torch.cat((data,data_layer1),2)
+        else:
+            assert (len(self.gat_net)==2)
+            data_layer2=self.gat_net[1](data_layer1)
+            return torch.cat((data,data_layer1,data_layer2),2)
 
 
 class GATLayer(torch.nn.Module):

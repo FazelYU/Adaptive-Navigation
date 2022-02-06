@@ -62,7 +62,7 @@ class AR_SUMO_Environment(gym.Env):
 			self.cummulative_n_invalid_actions=0
 			self.should_log_data=True
 			if self.should_log_data:
-				self.summ_writer = SummaryWriter(filename_suffix=self.config.routing_mode)
+				self.summ_writer = SummaryWriter(filename_suffix=self.config.model_version+" "+self.config.Constants["NETWORK"]+" "+self.config.routing_mode)
 						
 		def reset(self,episode,config):
 			self.episode_number=episode

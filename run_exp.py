@@ -27,19 +27,25 @@ from environments.sumo.Utils import Utils
 from agents.DQN_agents.DQN_multi_agent import DQN
 from agents.Trainer_multi_agent import Trainer
 
+routing_modes=["Q_routing_2_hop","Q_routing_1_hop","Q_routing_0_hop","Q_routing","TTSPWRR","TTSP"]
+network_names=["5x6","UES_Manhatan","toronto"]
+
+gpu_num=int(sys.argv[1])
+algorithm_num=int(sys.argv[2])
+network_num=int(sys.argv[3])
 
 config = Config()
 
 config.use_GPU = True
 assert(torch.cuda.is_available())
-config.device = torch.device(0)
-config.seed = 1
-config.envm_seed=100
+config.device = torch.device(gpu_num)
+
+
+config.routing_mode=routing_modes[algorithm_num]
+network_name=network_names[network_num]
 
 config.training_mode=True
 
-routing_modes=["Q_routing_2_hop","Q_routing_1_hop","Q_routing_0_hop","Q_routing","TTSPWRR","TTSP"]
-config.routing_mode=routing_modes[0]
 config.does_need_network_state=config.routing_mode in ["Q_routing_2_hop","Q_routing_1_hop","Q_routing_0_hop"]
 config.does_need_network_state_embeding=config.routing_mode in ["Q_routing_2_hop","Q_routing_1_hop"]
 config.retain_graph=config.does_need_network_state_embeding
@@ -51,9 +57,8 @@ config.should_save_model=False if  config.routing_mode== "TTSPWRR" or \
                                     config.routing_mode=="TTSP" else \
                                     config.training_mode
 
-# name of the network/ experiement:
-# other valid values: ["toronto",5x6"]
-network_name="UES_Manhatan" 
+
+
 config.Constants = {
     "NETWORK":network_name,
     "SUMO_PATH" : "/usr/share/sumo", #path to sumo in your system
@@ -80,7 +85,7 @@ config.Constants = {
 
 
 
-config.num_episodes_to_run = 10 if config.training_mode else 5
+config.num_episodes_to_run = 600 if config.training_mode else 5
 
 config.Max_number_vc=200
 config.uniform_demand_period=5
@@ -117,16 +122,19 @@ config.runs_per_agent = 1
 config.overwrite_existing_results_file = True
 config.randomise_random_seed = True
 config.save_model = True
-config.model_version="V4"
+config.model_version="Feb22"
 
 
 if config.routing_mode=="Q_routing":
+    num_GAT_layers=1 #Dummy initialization
     config.network_embed_size=0
+    num_GAT_features_per_layer=[2,5] #Dummy initialization
     DQN_linear_hidden_units=[5,4]
 
 if config.routing_mode=="Q_routing_0_hop":
-    num_GAT_layers=0
+    num_GAT_layers=1  #Dummy initialization
     config.network_embed_size=5
+    num_GAT_features_per_layer=[2,5] #Dummy initialization
     DQN_linear_hidden_units=[8,6]
 
 
@@ -165,7 +173,7 @@ config.hyperparameters = {
         "buffer_size": 10000,
         "batch_size": 64,
         "final_layer_activation": None,
-        "batch_norm": True,
+        "batch_norm": False,
         "gradient_clipping_norm": 5,
         "num-new-exp-to-learn":1,
         "tau": 0.01,
@@ -180,6 +188,8 @@ config.hyperparameters = {
 
 config.network_state=[]
 config.edge_index=[]
+config.seed = 1
+config.envm_seed=100
 
 
 def init_traci():

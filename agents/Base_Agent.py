@@ -529,6 +529,8 @@ class Base_Agent(object):
 
     def save_policies(self):
         """Saves the policy"""
+        net_name=self.config.Constants["NETWORK"]
+        os.makedirs(f"Models/{self.config.model_version}/{ net_name }/{self.config.routing_mode}", exist_ok=True)
         for agent_id in self.agent_dic:
             torch.save(self.agent_dic[agent_id]["policy"].state_dict(),"Models/{}/{}/{}/agent_{}_policy.pt".format(self.config.model_version,self.config.Constants["NETWORK"],self.config.routing_mode,agent_id))
             torch.save(self.agent_dic[agent_id]["intersec_id_embed_layer"].state_dict(),"Models/{}/{}/{}/agent_{}_id_embed_layer.pt".format(self.config.model_version,self.config.Constants["NETWORK"],self.config.routing_mode,agent_id))
