@@ -99,38 +99,20 @@ The figure below, shows part of the simulation for the SPWR. One can see that th
   
 How to run:
 -----------------------------
-* to set the routing algorithm, edit line 47 of the run_exp.py. 
-    ```
-    line 47: config.routing_mode=routing_modes[1]
-    ```
+to train the model you need to specify three things:
+  1- gpu_number, to specify the gpu to train on (used for training several experiements on the server. You can choose it to be always 0)
+  2- algorithm_number [0=AN(2), 1=AN(1), 2=AN(0),3=Q-routing]
+  3- network_name [0="5x6 network",2="toronto"]
+To run the code :
+  
+```
+  python run_exp.py gpu_number algorithm_number network_name
+  
+```
+  For example, to run Adaptive Navigation with 2 layers on toronto network, run:
 
-  sets the routing for AN(h=1)
-
-* to change between training/testing, edit line 44 of the run_exp.py. e.g. for testing phase:
-  ```
-    line 44: config.training_mode=False
-  ```
-* to run toronto experiement, edit line 61 of run_exp.py to :
-  ```
-     line 61: network_name="toronto"
-  ```
-  and run:
-  
 ```
-  python run_exp.py
-  
-```
-  
-* to run 5x6 experiement, set line 61 of run_exp.py to : 
-  
-  ```
-  line 61: network_name="5x6"
-  
-  ```
-  and run:
-  
-```
-  python run_exp.py  
+  python run_exp.py 0 0 2 
 ```
   
 
