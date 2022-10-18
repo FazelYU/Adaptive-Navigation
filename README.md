@@ -117,5 +117,6 @@ To run the code :
   
  Refrence:
  -------------------------------
- Accepted in SIGSPATIAL 2022: [https://sigspatial2022.sigspatial.org/accepted-papers/](https://sigspatial2022.sigspatial.org/accepted-papers/)
+ Accepted in SIGSPATIAL 2022: [https://sigspatial2022.sigspatial.org/accepted-papers/](https://sigspatial2022.sigspatial.org/accepted-papers/): Network-aware Multi-agent Reinforcement Learning for the Vehicle Navigation Problem
+Fazel Arasteh, Soroush Sheikh Gargar, and Manos Papagelis
 
